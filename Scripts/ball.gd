@@ -77,9 +77,9 @@ func _physics_process(delta: float) -> void:
 		position.x = 440.0
 		velocity.x = -abs(velocity.x)
 
-	# Floor detection
-	if position.y >= 700.0 - 20.0:
-		position.y = 700.0 - 20.0
+	# Floor detection — ball origin is centre, ball is 40px tall so half = 20
+	if position.y >= 680.0:
+		position.y = 680.0
 		velocity = Vector2.ZERO
 		active = false
 		hit_bottom.emit()

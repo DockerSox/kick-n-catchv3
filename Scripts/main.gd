@@ -16,15 +16,13 @@ func _ready() -> void:
 func _start_round() -> void:
 	var screen: Vector2 = Vector2(460, 700)
 
-	# Reset ball
 	ball.position = Vector2(screen.x / 2.0, screen.y / 3.0)
 	ball.velocity = Vector2.ZERO
 	ball.active = false
 
-	# Reset paddles
-	paddle_left.start_position = Vector2(80, 700.0 - 60.0)
+	paddle_left.start_position = Vector2(80, 640.0)
 	paddle_left.position = paddle_left.start_position
-	paddle_right.start_position = Vector2(460.0 - 80, 700.0 - 60.0)
+	paddle_right.start_position = Vector2(380.0, 640.0)
 	paddle_right.position = paddle_right.start_position
 	paddle_right.is_cpu = not two_player
 
@@ -41,11 +39,10 @@ func _start_round() -> void:
 	$SubViewportContainer/SubViewport.handle_input_locally = false
 
 func _on_ball_hit_bottom() -> void:
-	# Only restart if both paddles have launched
 	var left_launched: bool = paddle_left.state == paddle_left.State.LAUNCHED
 	var right_launched: bool = paddle_right.state == paddle_right.State.LAUNCHED
 	if left_launched and right_launched:
-		_try_again()
+		await _try_again()
 
 func _try_again() -> void:
 	win_label.text = "TRY AGAIN"
