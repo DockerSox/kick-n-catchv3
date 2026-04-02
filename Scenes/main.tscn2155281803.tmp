@@ -1,0 +1,32 @@
+[gd_scene format=3 uid="uid://c2cf6dn10wb45"]
+
+[ext_resource type="Script" uid="uid://bgxlcjxvkct4" path="res://Scripts/main.gd" id="1_8gbba"]
+[ext_resource type="PackedScene" uid="uid://b0co02r7b462q" path="res://Scenes/ball.tscn" id="1_bo1nx"]
+[ext_resource type="PackedScene" uid="uid://bf2sb5s8nhfai" path="res://Scenes/contest_unit.tscn" id="2_8gbba"]
+
+[node name="Main" type="Node2D" unique_id=574375206]
+script = ExtResource("1_8gbba")
+
+[node name="Ball" parent="." unique_id=385356315 instance=ExtResource("1_bo1nx")]
+
+[node name="ContestUnitA" parent="." unique_id=2132806529 instance=ExtResource("2_8gbba")]
+unique_name_in_owner = true
+move_left_action = "p1_left"
+move_right_action = "p1_right"
+launch_action = "p1_launch"
+
+[node name="ContestUnitB" parent="." unique_id=369545063 instance=ExtResource("2_8gbba")]
+unique_name_in_owner = true
+move_left_action = "p2_left"
+move_right_action = "p2_right"
+launch_action = "p2_launch"
+
+[node name="UI" type="CanvasLayer" parent="." unique_id=1600460537]
+process_mode = 3
+
+[node name="WinLabel" type="Label" parent="UI" unique_id=1973958372]
+process_mode = 3
+offset_right = 1280.0
+offset_bottom = 720.0
+horizontal_alignment = 1
+vertical_alignment = 1

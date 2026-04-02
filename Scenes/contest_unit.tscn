@@ -1,0 +1,28 @@
+[gd_scene format=3 uid="uid://bf2sb5s8nhfai"]
+
+[ext_resource type="Script" uid="uid://dauclsdie7wow" path="res://Scripts/contest_unit.gd" id="1_mb3r0"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_lgmbi"]
+size = Vector2(30, 120)
+
+[node name="ContestUnit" type="Area2D" unique_id=2132806529]
+script = ExtResource("1_mb3r0")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1981555781]
+shape = SubResource("RectangleShape2D_lgmbi")
+
+[node name="ColorRect" type="ColorRect" parent="." unique_id=1641635499]
+offset_left = -10.0
+offset_top = -50.0
+offset_right = 20.0
+offset_bottom = 70.0
+color = Color(0.26984996, 0.10377582, 0.5337145, 1)
+
+[node name="Arrow" type="Line2D" parent="." unique_id=1486921508]
+width = 3.0
+
+[node name="ArrowLeft" type="Line2D" parent="." unique_id=1003860580]
+width = 3.0
+
+[node name="ArrowRight" type="Line2D" parent="." unique_id=1257065724]
+width = 3.0
