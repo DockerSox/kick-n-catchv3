@@ -1,6 +1,7 @@
 extends Area2D
 
 signal paddle_hit(paddle: Area2D)
+signal hit_bottom
 
 var velocity: Vector2 = Vector2.ZERO
 var active: bool = false
@@ -13,6 +14,8 @@ func _on_area_entered(area: Area2D) -> void:
 		paddle_hit.emit(area)
 
 func launch() -> void:
+	active = false
+	velocity = Vector2.ZERO
 	var screen: Vector2 = Vector2(460, 700)
 
 	for _attempt in range(200):
@@ -65,3 +68,18 @@ func _physics_process(delta: float) -> void:
 		return
 	velocity.y += 400.0 * delta
 	position += velocity * delta
+
+	# Safety wall clamps
+	if position.x < 20.0:
+		position.x = 20.0
+		velocity.x = abs(velocity.x)
+	elif position.x > 440.0:
+		position.x = 440.0
+		velocity.x = -abs(velocity.x)
+
+	# Floor detection
+	if position.y >= 700.0:
+		position.y = 700.0
+		velocity = Vector2.ZERO
+		active = false
+		hit_bottom.emit()
