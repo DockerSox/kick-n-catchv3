@@ -32,6 +32,11 @@ func _ready() -> void:
 		paddle_right.cpu_launch()
 
 	$SubViewportContainer/SubViewport.handle_input_locally = false
+	
+	win_label.set_anchor_and_offset(SIDE_LEFT, 0, 0)
+	win_label.set_anchor_and_offset(SIDE_RIGHT, 1, 0)
+	win_label.set_anchor_and_offset(SIDE_TOP, 0, 0)
+	win_label.set_anchor_and_offset(SIDE_BOTTOM, 1, 0)
 
 func _on_paddle_hit(area: Area2D) -> void:
 	print("hit detected: ", area.name)
