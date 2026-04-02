@@ -78,8 +78,8 @@ func _physics_process(delta: float) -> void:
 		velocity.x = -abs(velocity.x)
 
 	# Floor detection
-	if position.y >= 700.0:
-		position.y = 700.0
+	if position.y >= 700.0 - 20.0:
+		position.y = 700.0 - 20.0
 		velocity = Vector2.ZERO
 		active = false
 		hit_bottom.emit()
