@@ -63,4 +63,14 @@ func _on_paddle_hit(area: Area2D) -> void:
 func _end_game(message: String) -> void:
 	win_label.text = message
 	win_label.visible = true
-	get_tree().paused = true
+	# Store winner in GameState
+	if message == "Player 1 Wins!":
+		GameState.contest_winner = "A"
+	elif message == "Player 2 Wins!" or message == "CPU Wins!":
+		GameState.contest_winner = "B"
+	# Wait 2 seconds then return to whatever scene called us
+	await get_tree().create_timer(2.0).timeout
+	if GameState.return_scene != "":
+		GameState.go_to_scene(GameState.return_scene)
+	else:
+		get_tree().paused = true
