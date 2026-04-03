@@ -1,0 +1,22 @@
+[gd_scene format=3 uid="uid://ccjof2rady12g"]
+
+[ext_resource type="Script" uid="uid://pjiqrps1srh0" path="res://Scripts/unit.gd" id="1_yjw0f"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_fc6p6"]
+size = Vector2(30, 50)
+
+[node name="Unit" type="Area2D" unique_id=253754495]
+script = ExtResource("1_yjw0f")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=446269883]
+shape = SubResource("RectangleShape2D_fc6p6")
+
+[node name="ColorRect" type="ColorRect" parent="." unique_id=707775852]
+offset_left = -15.0
+offset_top = -25.0
+offset_right = 15.0
+offset_bottom = 25.0
+
+[node name="NameLabel" type="Label" parent="." unique_id=506694650]
+offset_right = 40.0
+offset_bottom = 23.0
