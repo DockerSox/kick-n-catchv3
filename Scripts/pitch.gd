@@ -59,6 +59,27 @@ func _ready() -> void:
 	# Determine attacking team from GameState
 	attacking_team = GameState.attacking_team if GameState.attacking_team != "" else "A"
 
+# Handle returning from a Contest Game
+	if GameState.return_scene == "res://Scenes/pitch.tscn":
+		GameState.return_scene = ""
+		if GameState.contest_reason == "clash" or GameState.contest_reason == "no_unit":
+			attacking_team = GameState.contest_winner
+			GameState.attacking_team = GameState.contest_winner
+			# Find nearest unit to contest position on winning team
+			var winning_units: Array = all_units_a if attacking_team == "A" else all_units_b
+			var nearest: Node2D = null
+			var nearest_dist: float = INF
+			for unit in winning_units:
+				var d: float = unit.position.distance_to(GameState.contest_crosshair_pos)
+				if d < nearest_dist:
+					nearest_dist = d
+					nearest = unit
+			if nearest != null:
+				nearest.position = GameState.contest_crosshair_pos
+			_set_aiming_unit(nearest if nearest != null else _get_centre_unit(attacking_team))
+			_update_score()
+			return
+
 	# Start the game
 	_set_aiming_unit(_get_centre_unit(attacking_team))
 	_update_score()
@@ -156,7 +177,7 @@ func _reset_positions() -> void:
 	GameState.go_to_scene("res://Scenes/main.tscn")
 
 func _end_match() -> void:
-	var winner: String = "Team A Wins!" if GameState.score_a >= 2 else "Team B Wins!"
+	var _winner: String = "Team A Wins!" if GameState.score_a >= 2 else "Team B Wins!"
 	# For now just go back to title after delay
 	await get_tree().create_timer(3.0).timeout
 	GameState.reset_score()

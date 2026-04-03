@@ -1,0 +1,42 @@
+[gd_scene format=3 uid="uid://dy2hpnvp2c4tu"]
+
+[ext_resource type="Script" uid="uid://jvnb8mk1673t" path="res://Scripts/crosshair.gd" id="1_aqujx"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_ktklg"]
+radius = 20.0
+
+[node name="Crosshair" type="Node2D" unique_id=402353958]
+script = ExtResource("1_aqujx")
+
+[node name="InnerRadius" type="Line2D" parent="." unique_id=1071222427]
+width = 2.0
+
+[node name="MiddleRadius" type="Line2D" parent="." unique_id=306657295]
+width = 2.0
+default_color = Color(1, 1, 0, 1)
+
+[node name="OuterRadius" type="Line2D" parent="." unique_id=1679110945]
+width = 2.0
+default_color = Color(1, 0.53333336, 0, 1)
+
+[node name="CrosshairLines" type="Node2D" parent="." unique_id=367252110]
+
+[node name="LineH" type="Line2D" parent="CrosshairLines" unique_id=356547438]
+width = 2.0
+
+[node name="LineV" type="Line2D" parent="CrosshairLines" unique_id=641137693]
+width = 2.0
+
+[node name="CountdownLabel" type="Label" parent="." unique_id=246825862]
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 47.0
+theme_override_font_sizes/font_size = 48
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="CollisionArea" type="Area2D" parent="." unique_id=165529586]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="CollisionArea" unique_id=2140379768]
+shape = SubResource("CircleShape2D_ktklg")
