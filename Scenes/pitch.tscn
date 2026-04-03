@@ -77,7 +77,7 @@ unit_color = Color(0.8, 0.26666668, 0.8, 1)
 
 [node name="UnitB_Defence" parent="UnitsB" unique_id=11078722 instance=ExtResource("1_p7quv")]
 team = "B"
-role = "defense"
+role = "defence"
 unit_color = Color(0.8, 0.26666668, 0.8, 1)
 
 [node name="Crosshair" type="Node2D" parent="." unique_id=1800313787]
