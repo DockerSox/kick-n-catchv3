@@ -11,11 +11,15 @@ func _ready() -> void:
 	win_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	ball.paddle_hit.connect(_on_paddle_hit)
 	ball.hit_bottom.connect(_on_ball_hit_bottom)
+
+	# Set two_player based on GameState when called from pitch
+	if GameState.return_scene != "":
+		two_player = true  # contest game is always 2 human inputs for now
+
 	await _start_round()
 
 func _start_round() -> void:
 	var screen: Vector2 = Vector2(460, 700)
-
 	ball.position = Vector2(screen.x / 2.0, screen.y / 3.0)
 	ball.velocity = Vector2.ZERO
 	ball.active = false
@@ -53,24 +57,24 @@ func _try_again() -> void:
 
 func _on_paddle_hit(area: Area2D) -> void:
 	if area == paddle_left:
-		_end_game("Player 1 Wins!")
+		_end_game("Player 1 Wins!", "A")
 	elif area == paddle_right:
 		if two_player:
-			_end_game("Player 2 Wins!")
+			_end_game("Player 2 Wins!", "B")
 		else:
-			_end_game("CPU Wins!")
+			_end_game("CPU Wins!", "B")
 
-func _end_game(message: String) -> void:
+func _end_game(message: String, winner: String) -> void:
 	win_label.text = message
 	win_label.visible = true
-	# Store winner in GameState
-	if message == "Player 1 Wins!":
-		GameState.contest_winner = "A"
-	elif message == "Player 2 Wins!" or message == "CPU Wins!":
-		GameState.contest_winner = "B"
-	# Wait 2 seconds then return to whatever scene called us
-	await get_tree().create_timer(2.0).timeout
+	GameState.contest_winner = winner
+
+	# If we were called from the pitch, return there after a delay
 	if GameState.return_scene != "":
-		GameState.go_to_scene(GameState.return_scene)
+		await get_tree().create_timer(2.0).timeout
+		var return_to: String = GameState.return_scene
+		GameState.return_scene = ""
+		GameState.go_to_scene(return_to)
 	else:
+		# Standalone contest game — just freeze
 		get_tree().paused = true
