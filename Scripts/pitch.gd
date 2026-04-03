@@ -5,7 +5,7 @@ extends Node2D
 @onready var units_b: Node2D = $UnitsB
 @onready var crosshair: Node2D = $Crosshair
 @onready var score_label: Label = $UI/ScoreLabel
-@onready var pause_menu: Control = $PauseMenu
+@onready var pause_menu: Control = $UI/PauseMenu
 @onready var camera: Camera2D = $Camera2D
 @onready var goal_square_a: ColorRect = $GoalSquareA
 @onready var goal_square_b: ColorRect = $GoalSquareB
@@ -44,17 +44,17 @@ func _ready() -> void:
 
 	# Position all units
 	for unit in all_units_a:
-		unit.position = POSITIONS_A.get(unit.role, Vector2(800, 1200))
+		unit.position = POSITIONS_A.get(unit.role, Vector2(1200, 450))
 	for unit in units_b.get_children():
-		unit.position = POSITIONS_B.get(unit.role, Vector2(800, 1200))
+		unit.position = POSITIONS_B.get(unit.role, Vector2(1200, 450))
 
 	# Set goalie constraints
 	_set_goalie_bounds()
 
 	# Connect pause button
 	$UI/PauseButton.pressed.connect(_on_pause)
-	$PauseMenu/ResumeButton.pressed.connect(_on_resume)
-	$PauseMenu/QuitButton.pressed.connect(_on_quit)
+	$UI/PauseMenu/ResumeButton.pressed.connect(_on_resume)
+	$UI/PauseMenu/QuitButton.pressed.connect(_on_quit)
 
 	# Determine attacking team from GameState
 	attacking_team = GameState.attacking_team if GameState.attacking_team != "" else "A"

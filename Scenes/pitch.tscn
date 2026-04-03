@@ -106,6 +106,7 @@ text = "II"
 flat = true
 
 [node name="PauseMenu" type="Control" parent="UI" unique_id=1056638519]
+visible = false
 layout_mode = 3
 anchors_preset = 0
 offset_right = 40.0
