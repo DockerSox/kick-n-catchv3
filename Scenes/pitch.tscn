@@ -1,0 +1,158 @@
+[gd_scene format=3 uid="uid://bralo5ce6icn5"]
+
+[ext_resource type="Script" uid="uid://dxqlpjvgx1d28" path="res://Scripts/pitch.gd" id="1_2dmjp"]
+[ext_resource type="PackedScene" uid="uid://ccjof2rady12g" path="res://Scenes/unit.tscn" id="1_p7quv"]
+
+[node name="Pitch" type="Node2D" unique_id=1118211447]
+script = ExtResource("1_2dmjp")
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=26957189]
+position = Vector2(1200, 450)
+zoom = Vector2(1.8, 1.8)
+
+[node name="PitchBackground" type="ColorRect" parent="." unique_id=527676526]
+offset_right = 2400.0
+offset_bottom = 900.0
+color = Color(0.1764706, 0.3529412, 0.105882354, 1)
+
+[node name="PitchLines" type="Node2D" parent="." unique_id=517201835]
+
+[node name="GoalSquareA" type="ColorRect" parent="." unique_id=376480223]
+offset_left = 50.0
+offset_top = 300.0
+offset_right = 250.0
+offset_bottom = 600.0
+color = Color(0.53333336, 0.53333336, 1, 0.26666668)
+
+[node name="GoalSquareB" type="ColorRect" parent="." unique_id=1538904152]
+offset_left = 2150.0
+offset_top = 300.0
+offset_right = 2350.0
+offset_bottom = 600.0
+color = Color(1, 0.53333336, 0.53333336, 0.26666668)
+
+[node name="UnitsA" type="Node2D" parent="." unique_id=317694147]
+
+[node name="UnitA_Centre" parent="UnitsA" unique_id=253754495 instance=ExtResource("1_p7quv")]
+role = "centre"
+unit_color = Color(0.41568628, 0.050980393, 0.6784314, 1)
+
+[node name="UnitA_Goalie" parent="UnitsA" unique_id=437234748 instance=ExtResource("1_p7quv")]
+role = "goalie"
+unit_color = Color(0.41568628, 0.050980393, 0.6784314, 1)
+
+[node name="UnitA_Winger" parent="UnitsA" unique_id=1537416200 instance=ExtResource("1_p7quv")]
+role = "winger"
+unit_color = Color(0.41568628, 0.050980393, 0.6784314, 1)
+
+[node name="UnitA_Attack" parent="UnitsA" unique_id=2100682804 instance=ExtResource("1_p7quv")]
+role = "attack"
+unit_color = Color(0.41568628, 0.050980393, 0.6784314, 1)
+
+[node name="UnitA_Defence" parent="UnitsA" unique_id=942171356 instance=ExtResource("1_p7quv")]
+role = "defence"
+unit_color = Color(0.41568628, 0.050980393, 0.6784314, 1)
+
+[node name="UnitsB" type="Node2D" parent="." unique_id=556849350]
+
+[node name="UnitB_Centre" parent="UnitsB" unique_id=1897257026 instance=ExtResource("1_p7quv")]
+team = "B"
+role = "centre"
+unit_color = Color(0.8, 0.26666668, 0.8, 1)
+
+[node name="UnitB_Goalie" parent="UnitsB" unique_id=1294043275 instance=ExtResource("1_p7quv")]
+team = "B"
+role = "goalie"
+unit_color = Color(0.8, 0.26666668, 0.8, 1)
+
+[node name="UnitB_Winger" parent="UnitsB" unique_id=585997653 instance=ExtResource("1_p7quv")]
+team = "B"
+role = "winger"
+unit_color = Color(0.8, 0.26666668, 0.8, 1)
+
+[node name="UnitB_Attack" parent="UnitsB" unique_id=1892459557 instance=ExtResource("1_p7quv")]
+team = "B"
+role = "attack"
+unit_color = Color(0.8, 0.26666668, 0.8, 1)
+
+[node name="UnitB_Defence" parent="UnitsB" unique_id=11078722 instance=ExtResource("1_p7quv")]
+team = "B"
+role = "defense"
+unit_color = Color(0.8, 0.26666668, 0.8, 1)
+
+[node name="Crosshair" type="Node2D" parent="." unique_id=1800313787]
+
+[node name="UI" type="CanvasLayer" parent="." unique_id=1128041651]
+
+[node name="ScoreLabel" type="Label" parent="UI" unique_id=1484671782]
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -60.0
+offset_top = 10.0
+offset_right = 35.0
+offset_bottom = 77.0
+grow_horizontal = 2
+theme_override_font_sizes/font_size = 48
+text = "0 - 0"
+
+[node name="PauseButton" type="Button" parent="UI" unique_id=202375935]
+offset_left = 1200.0
+offset_top = 10.0
+offset_right = 1230.0
+offset_bottom = 68.0
+theme_override_font_sizes/font_size = 36
+text = "II"
+flat = true
+
+[node name="PauseMenu" type="Control" parent="UI" unique_id=1056638519]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="ColorRect" type="ColorRect" parent="UI/PauseMenu" unique_id=1924741662]
+layout_mode = 0
+offset_right = 1280.0
+offset_bottom = 720.0
+color = Color(0, 0, 0, 0.42745098)
+
+[node name="Label" type="Label" parent="UI/PauseMenu" unique_id=1359814086]
+layout_mode = 0
+offset_left = 140.0
+offset_top = 120.0
+offset_right = 387.0
+offset_bottom = 208.0
+theme_override_colors/font_color = Color(0.9764706, 0.25490198, 0.27058825, 1)
+theme_override_font_sizes/font_size = 64
+text = "PAUSED"
+
+[node name="ResumeButton" type="Button" parent="UI/PauseMenu" unique_id=739104657]
+layout_mode = 0
+offset_left = 140.0
+offset_top = 300.0
+offset_right = 339.0
+offset_bottom = 375.0
+theme_override_font_sizes/font_size = 48
+text = "RESUME"
+flat = true
+
+[node name="OptionsButton" type="Button" parent="UI/PauseMenu" unique_id=578011917]
+layout_mode = 0
+offset_left = 140.0
+offset_top = 400.0
+offset_right = 359.0
+offset_bottom = 475.0
+theme_override_font_sizes/font_size = 48
+text = "OPTIONS"
+flat = true
+
+[node name="QuitButton" type="Button" parent="UI/PauseMenu" unique_id=911400685]
+layout_mode = 0
+offset_left = 140.0
+offset_top = 500.0
+offset_right = 263.0
+offset_bottom = 575.0
+theme_override_font_sizes/font_size = 48
+text = "QUIT"
+flat = true
