@@ -1,0 +1,88 @@
+[gd_scene format=3 uid="uid://d231n1emfkxkj"]
+
+[ext_resource type="Script" uid="uid://4xjx7p1c1y2" path="res://Scripts/team_select.gd" id="1_bwcjg"]
+
+[node name="TeamSelect" type="Control" unique_id=161226781]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+script = ExtResource("1_bwcjg")
+
+[node name="ColorRect" type="ColorRect" parent="." unique_id=504157654]
+layout_mode = 0
+offset_right = 1280.0
+offset_bottom = 720.0
+color = Color(0.101960786, 0.22745098, 0.101960786, 1)
+
+[node name="Title" type="Label" parent="." unique_id=3136201]
+layout_mode = 0
+offset_left = 417.0
+offset_top = 18.0
+offset_right = 860.0
+offset_bottom = 106.0
+theme_override_font_sizes/font_size = 64
+text = "SELECT TEAMS"
+horizontal_alignment = 1
+
+[node name="TeamALabel" type="Label" parent="." unique_id=1800662590]
+layout_mode = 0
+offset_left = 513.0
+offset_top = 263.0
+offset_right = 653.0
+offset_bottom = 313.0
+theme_override_font_sizes/font_size = 36
+text = "TEAM A:"
+
+[node name="TeamAOption" type="OptionButton" parent="." unique_id=539980149]
+layout_mode = 0
+offset_left = 687.0
+offset_top = 279.0
+offset_right = 719.0
+offset_bottom = 299.0
+item_count = 2
+popup/item_0/text = "Human"
+popup/item_0/id = 0
+popup/item_1/text = "PC"
+popup/item_1/id = 1
+
+[node name="TeamBLabel" type="Label" parent="." unique_id=796704796]
+layout_mode = 0
+offset_left = 513.0
+offset_top = 353.0
+offset_right = 653.0
+offset_bottom = 403.0
+theme_override_font_sizes/font_size = 36
+text = "TEAM B:"
+
+[node name="TeamBOption" type="OptionButton" parent="." unique_id=605396487]
+layout_mode = 0
+offset_left = 686.0
+offset_top = 372.0
+offset_right = 718.0
+offset_bottom = 392.0
+item_count = 2
+popup/item_0/text = "Human"
+popup/item_0/id = 0
+popup/item_1/text = "PC"
+popup/item_1/id = 1
+
+[node name="StartButton" type="Button" parent="." unique_id=1789197710]
+layout_mode = 0
+offset_left = 488.0
+offset_top = 570.0
+offset_right = 789.0
+offset_bottom = 645.0
+theme_override_font_sizes/font_size = 48
+text = "START GAME"
+flat = true
+
+[node name="BackButton" type="Button" parent="." unique_id=1455387942]
+layout_mode = 0
+offset_left = 73.0
+offset_top = 617.0
+offset_right = 174.0
+offset_bottom = 675.0
+theme_override_font_sizes/font_size = 36
+text = "BACK"
+flat = true
