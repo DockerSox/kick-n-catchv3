@@ -14,7 +14,6 @@ var human_defending: bool = false
 var stop_distance: float = 20.0
 var forbidden_rects: Array = []
 
-# Input actions for human-controlled defender
 var defend_up: String = ""
 var defend_down: String = ""
 var defend_left: String = ""
@@ -31,11 +30,12 @@ func _ready() -> void:
 	name_label.text = role.substr(0, 2).to_upper()
 
 func _physics_process(delta: float) -> void:
+	if role == "goalie":
+		return
 	if is_aiming:
 		return
 	if is_defending:
 		if human_defending:
-			#print(name, " human defending, defend_up=", defend_up)
 			_handle_human_defend(delta)
 		elif assigned_target != null:
 			_move_toward_target(delta)
@@ -74,7 +74,7 @@ func _handle_human_defend(delta: float) -> void:
 func _avoid_forbidden(new_pos: Vector2) -> Vector2:
 	for rect in forbidden_rects:
 		if rect.has_point(new_pos):
-			return position  # cancel the move
+			return position
 	return new_pos
 
 func set_as_aiming(value: bool) -> void:
@@ -87,7 +87,6 @@ func set_as_aiming(value: bool) -> void:
 		color_rect.color = unit_color
 
 func set_as_defender(target: Node2D, is_human: bool, up: String = "", down: String = "", left: String = "", right: String = "", stop_dist: float = 20.0) -> void:
-	#print(name, " set_as_defender human=", is_human, " up=", up)
 	is_defending = true
 	assigned_target = target
 	human_defending = is_human

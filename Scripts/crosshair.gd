@@ -1,15 +1,10 @@
 extends Node2D
 
-# Single circle radius — roughly unit height
 const CROSSHAIR_RADIUS: float = 50.0
-
-# Maximum distance crosshair can move from aiming unit
 const RADIUS_INNER: float = 150.0
 const RADIUS_MIDDLE: float = 300.0
 const RADIUS_OUTER: float = 450.0
-
 const MOVE_SPEED: float = 300.0
-
 const COUNTDOWN_TIME: Dictionary = {
 	1: 1.5,
 	2: 2.5,
@@ -38,7 +33,6 @@ var kick_action: String = ""
 func _ready() -> void:
 	_draw_circle_line(circle, CROSSHAIR_RADIUS)
 	_draw_crosshair_lines()
-	# Set collision shape radius to match visual
 	var shape := CircleShape2D.new()
 	shape.radius = CROSSHAIR_RADIUS
 	collision_shape.shape = shape
@@ -59,6 +53,12 @@ func activate(unit: Node2D) -> void:
 	active = true
 	countdown_active = false
 	countdown_label.visible = false
+
+	# Restore visuals
+	line_h.visible = true
+	line_v.visible = true
+	circle.default_color = Color(1.0, 1.0, 1.0, 1.0)
+	countdown_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
 
 	var team: String = unit.team
 	var is_human: bool = (team == "A" and GameState.team_a_player == 1) or \
@@ -98,17 +98,13 @@ func _handle_movement(delta: float) -> void:
 		move = move.normalized()
 
 	var new_pos: Vector2 = position + move * MOVE_SPEED * delta
-
-	# Clamp to outer radius from aiming unit
 	var offset: Vector2 = new_pos - aiming_unit.position
 	if offset.length() > RADIUS_OUTER:
 		offset = offset.normalized() * RADIUS_OUTER
 		new_pos = aiming_unit.position + offset
 
-	# Clamp to pitch bounds
 	new_pos.x = clamp(new_pos.x, 50.0, 2350.0)
 	new_pos.y = clamp(new_pos.y, 50.0, 850.0)
-
 	position = new_pos
 
 func _update_zone() -> void:
@@ -127,6 +123,11 @@ func _update_countdown_label() -> void:
 func _start_countdown() -> void:
 	countdown_active = true
 	countdown_remaining = COUNTDOWN_TIME[current_zone]
+	# Visual feedback — hide lines, grey out circle
+	line_h.visible = false
+	line_v.visible = false
+	circle.default_color = Color(0.7, 0.7, 0.7, 1.0)
+	countdown_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 1.0))
 
 func _handle_countdown(delta: float) -> void:
 	countdown_remaining -= delta
@@ -171,7 +172,6 @@ func _trigger_contest(pos: Vector2) -> void:
 	GameState.go_to_scene("res://Scenes/main.tscn")
 
 func _no_unit_resolution(attacking_team: String, pos: Vector2) -> void:
-	# No units in crosshair — trigger a Contest Game
 	GameState.return_scene = "res://Scenes/pitch.tscn"
 	GameState.contest_reason = "no_unit"
 	GameState.contest_crosshair_pos = pos

@@ -45,7 +45,7 @@ func _on_ball_hit_bottom() -> void:
 		return
 	var left_launched: bool = paddle_left.state == paddle_left.State.LAUNCHED
 	var right_launched: bool = paddle_right.state == paddle_right.State.LAUNCHED
-	if left_launched and right_launched:
+	if (left_launched and right_launched) or (not left_launched and not right_launched):
 		await _try_again()
 
 func _try_again() -> void:

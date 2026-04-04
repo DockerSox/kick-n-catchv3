@@ -24,14 +24,14 @@ const PITCH_H: float = 900.0
 
 const POSITIONS_A: Dictionary = {
 	"centre":  Vector2(1150, 450),
-	"goalie":  Vector2(250, 450),
+	"goalie":  Vector2(150, 450),
 	"winger":  Vector2(800, 150),
 	"defence": Vector2(900, 450),
 	"attack":  Vector2(600, 450)
 }
 const POSITIONS_B: Dictionary = {
 	"centre":  Vector2(1250, 450),
-	"goalie":  Vector2(2150, 450),
+	"goalie":  Vector2(2250, 450),
 	"winger":  Vector2(1600, 750),
 	"defence": Vector2(1500, 450),
 	"attack":  Vector2(1800, 450)
@@ -49,6 +49,10 @@ func _ready() -> void:
 	_set_goalie_bounds()
 	_set_forbidden_zones()
 
+	# Debug — confirm goal rects are correct
+	print("goal_a_rect: ", _get_goal_rect(goal_square_a))
+	print("goal_b_rect: ", _get_goal_rect(goal_square_b))
+
 	$UI/PauseButton.pressed.connect(_on_pause)
 	$UI/PauseMenu/ResumeButton.pressed.connect(_on_resume)
 	$UI/PauseMenu/QuitButton.pressed.connect(_on_quit)
@@ -60,8 +64,7 @@ func _ready() -> void:
 		if GameState.contest_reason == "clash" or GameState.contest_reason == "no_unit":
 			var winning_units: Array = all_units_a if attacking_team == "A" else all_units_b
 			var losing_units: Array = all_units_b if attacking_team == "A" else all_units_a
-	
-			# Move nearest winning unit to crosshair position
+
 			var nearest_winner: Node2D = null
 			var nearest_winner_dist: float = INF
 			for unit in winning_units:
@@ -72,7 +75,6 @@ func _ready() -> void:
 			if nearest_winner != null:
 				nearest_winner.position = GameState.contest_crosshair_pos
 
-			# Move nearest losing unit to crosshair position as marking unit
 			var nearest_loser: Node2D = null
 			var nearest_loser_dist: float = INF
 			for unit in losing_units:
@@ -102,27 +104,26 @@ func _process(delta: float) -> void:
 
 # --- Private/internal helpers ---
 
+func _get_goal_rect(sq: ColorRect) -> Rect2:
+	return Rect2(
+		Vector2(sq.offset_left, sq.offset_top),
+		Vector2(sq.offset_right - sq.offset_left, sq.offset_bottom - sq.offset_top)
+	)
+
 func _set_goalie_bounds() -> void:
 	for unit in all_units_a + all_units_b:
 		if unit.role == "goalie":
 			var sq: ColorRect = goal_square_a if unit.team == "A" else goal_square_b
-			# Use offset values which is how ColorRect stores position in Node2D scenes
-			var rect_pos: Vector2 = Vector2(sq.offset_left, sq.offset_top)
-			var rect_size: Vector2 = Vector2(sq.offset_right - sq.offset_left, sq.offset_bottom - sq.offset_top)
+			var rect: Rect2 = _get_goal_rect(sq)
+			unit.position = rect.position + rect.size / 2.0
 			unit.constrained = true
-			unit.bounds_rect = Rect2(rect_pos, rect_size)
+			unit.bounds_rect = rect
+			unit.is_defending = false
+			unit.assigned_target = null
 
 func _set_forbidden_zones() -> void:
-	var goal_a_rect: Rect2 = Rect2(
-		Vector2(goal_square_a.offset_left, goal_square_a.offset_top),
-		Vector2(goal_square_a.offset_right - goal_square_a.offset_left,
-				goal_square_a.offset_bottom - goal_square_a.offset_top)
-	)
-	var goal_b_rect: Rect2 = Rect2(
-		Vector2(goal_square_b.offset_left, goal_square_b.offset_top),
-		Vector2(goal_square_b.offset_right - goal_square_b.offset_left,
-				goal_square_b.offset_bottom - goal_square_b.offset_top)
-	)
+	var goal_a_rect: Rect2 = _get_goal_rect(goal_square_a)
+	var goal_b_rect: Rect2 = _get_goal_rect(goal_square_b)
 	for unit in all_units_a + all_units_b:
 		if unit.role != "goalie":
 			unit.forbidden_rects = [goal_a_rect, goal_b_rect]
@@ -138,12 +139,10 @@ func _assign_defenders() -> void:
 	var defending_units: Array = all_units_b if attacking_team == "A" else all_units_a
 	var attacking_units: Array = all_units_a if attacking_team == "A" else all_units_b
 
-	# Clean up marker nodes
 	for child in get_children():
 		if child.name.ends_with("_target"):
 			child.queue_free()
 
-	# Reset all units
 	for unit in defending_units:
 		unit.is_defending = false
 		unit.human_defending = false
@@ -153,16 +152,13 @@ func _assign_defenders() -> void:
 			unit.is_defending = false
 			unit.assigned_target = null
 
-	# Exclude attacking goalie from targets
 	var targetable_attackers: Array = attacking_units.filter(
 		func(u): return u.role != "goalie"
 	)
 
-	# Determine if defending team is human controlled
 	var is_human_defending: bool = (attacking_team == "A" and GameState.team_b_player == 1) or \
 								   (attacking_team == "B" and GameState.team_a_player == 1)
 
-	# Find closest defender to aiming unit — they become the marker
 	var marker_defender: Node2D = null
 	var marker_dist: float = INF
 	for defender in defending_units:
@@ -173,14 +169,11 @@ func _assign_defenders() -> void:
 			marker_dist = d
 			marker_defender = defender
 
-	# Snap marker defender to defensive side of aiming unit
 	if marker_defender != null:
 		var defending_direction: float = -1.0 if attacking_team == "A" else 1.0
 		marker_defender.position = aiming_unit.position + Vector2(defending_direction * 35.0, 0.0)
-		# Marking unit is always AI controlled — never human
 		marker_defender.set_as_defender(aiming_unit, false, "", "", "", "", 40.0)
 
-	# Assign remaining defenders to remaining targetable attackers
 	var remaining_defenders: Array = defending_units.filter(
 		func(u): return u != marker_defender and u.role != "goalie"
 	)
@@ -196,7 +189,7 @@ func _assign_defenders() -> void:
 		var nearest: Node2D = null
 		var nearest_dist: float = INF
 		for attacker in unassigned_attackers:
-			var dist: float = defender.position.distance_to(attacker.position)  # was "d"
+			var dist: float = defender.position.distance_to(attacker.position)
 			if dist < nearest_dist:
 				nearest_dist = dist
 				nearest = attacker
@@ -204,7 +197,6 @@ func _assign_defenders() -> void:
 			continue
 		unassigned_attackers.erase(nearest)
 
-		# Give human control to the first non-marker defender
 		var give_human: bool = is_human_defending and not human_assigned
 		if give_human:
 			human_assigned = true
@@ -259,6 +251,8 @@ func _reset_positions() -> void:
 		unit.position = POSITIONS_A.get(unit.role, Vector2(1200, 450))
 	for unit in all_units_b:
 		unit.position = POSITIONS_B.get(unit.role, Vector2(1200, 450))
+	# Re-centre goalies after reset
+	_set_goalie_bounds()
 	GameState.return_scene = "res://Scenes/pitch.tscn"
 	GameState.contest_reason = "kickoff"
 	GameState.go_to_scene("res://Scenes/main.tscn")
@@ -294,7 +288,6 @@ func set_aiming_unit(unit: Node2D) -> void:
 	aiming_unit = unit
 	aiming_unit.set_as_aiming(true)
 
-	# Set camera target with clamping
 	var viewport_size: Vector2 = get_viewport_rect().size
 	var half_w: float = (viewport_size.x / 2.0) / camera.zoom.x
 	var half_h: float = (viewport_size.y / 2.0) / camera.zoom.y
@@ -314,16 +307,8 @@ func on_kick_resolved(winning_team: String, resolve_position: Vector2) -> void:
 	attacking_team = winning_team
 	GameState.attacking_team = winning_team
 
-	var goal_a_rect: Rect2 = Rect2(
-		Vector2(goal_square_a.offset_left, goal_square_a.offset_top),
-		Vector2(goal_square_a.offset_right - goal_square_a.offset_left,
-				goal_square_a.offset_bottom - goal_square_a.offset_top)
-	)
-	var goal_b_rect: Rect2 = Rect2(
-		Vector2(goal_square_b.offset_left, goal_square_b.offset_top),
-		Vector2(goal_square_b.offset_right - goal_square_b.offset_left,
-				goal_square_b.offset_bottom - goal_square_b.offset_top)
-	)
+	var goal_a_rect: Rect2 = _get_goal_rect(goal_square_a)
+	var goal_b_rect: Rect2 = _get_goal_rect(goal_square_b)
 
 	if winning_team == "A" and goal_a_rect.has_point(resolve_position):
 		_score_goal("A")
