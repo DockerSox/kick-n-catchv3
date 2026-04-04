@@ -1,11 +1,12 @@
 extends Node2D
 
 const CROSSHAIR_RADIUS: float = 50.0
-const RADIUS_INNER: float = 150.0
-const RADIUS_MIDDLE: float = 300.0
-const RADIUS_OUTER: float = 450.0
-const MOVE_SPEED: float = 300.0
-const COUNTDOWN_TIME: Dictionary = {
+
+@export var RADIUS_INNER: float = 150.0
+@export var RADIUS_MIDDLE: float = 300.0
+@export var RADIUS_OUTER: float = 450.0
+@export var MOVE_SPEED: float = 300.0
+@export var COUNTDOWN_TIME: Dictionary = {
 	1: 1.5,
 	2: 2.5,
 	3: 4.0
@@ -54,7 +55,6 @@ func activate(unit: Node2D) -> void:
 	countdown_active = false
 	countdown_label.visible = false
 
-	# Aiming visuals — team's true colour
 	var aiming_color: Color = unit.unit_color
 	circle.default_color = aiming_color
 	line_h.visible = true
@@ -126,16 +126,19 @@ func _update_countdown_label() -> void:
 func _start_countdown() -> void:
 	countdown_active = true
 	countdown_remaining = COUNTDOWN_TIME[current_zone]
-	# Countdown visuals — white circle, hide lines
 	circle.default_color = Color.WHITE
 	line_h.visible = false
 	line_v.visible = false
 	countdown_label.add_theme_color_override("font_color", Color.WHITE)
+	# Notify pitch that kick has been launched
+	if pitch != null and pitch.has_method("on_kick_launched"):
+		pitch.on_kick_launched(position)
 
 func _handle_countdown(delta: float) -> void:
 	countdown_remaining -= delta
-	var display: int = int(ceil(countdown_remaining / \
-	(COUNTDOWN_TIME[current_zone] / float(current_zone + 0.0))))
+	var total: float = COUNTDOWN_TIME[current_zone]
+	var per_unit: float = total / float(current_zone)
+	var display: int = int(ceil(countdown_remaining / per_unit))
 	display = clamp(display, 0, current_zone)
 	countdown_label.text = str(display)
 	if countdown_remaining <= 0.0:

@@ -18,6 +18,12 @@ var all_units_a: Array = []
 var all_units_b: Array = []
 var camera_target: Vector2 = Vector2.ZERO
 
+var runner: Node2D = null
+var dragger: Node2D = null
+var prepper: Node2D = null
+
+var attack_update_timer: float = 0.0
+const ATTACK_UPDATE_INTERVAL: float = 0.5
 const CAMERA_SPEED: float = 3.0
 const PITCH_W: float = 2400.0
 const PITCH_H: float = 900.0
@@ -38,11 +44,6 @@ const POSITIONS_B: Dictionary = {
 }
 
 func _ready() -> void:
-	pause_menu.process_mode = Node.PROCESS_MODE_ALWAYS
-	for child in pause_menu.get_children():
-		child.process_mode = Node.PROCESS_MODE_ALWAYS
-	$UI.process_mode = Node.PROCESS_MODE_ALWAYS
-	
 	all_units_a = units_a.get_children()
 	all_units_b = units_b.get_children()
 
@@ -58,6 +59,11 @@ func _ready() -> void:
 	$UI/PauseMenu/ResumeButton.pressed.connect(_on_resume)
 	$UI/PauseMenu/QuitButton.pressed.connect(_on_quit)
 
+	pause_menu.process_mode = Node.PROCESS_MODE_ALWAYS
+	for child in pause_menu.get_children():
+		child.process_mode = Node.PROCESS_MODE_ALWAYS
+	$UI.process_mode = Node.PROCESS_MODE_ALWAYS
+
 	if GameState.return_scene == "res://Scenes/pitch.tscn":
 		GameState.return_scene = ""
 		attacking_team = GameState.contest_winner if GameState.contest_winner != "" else "A"
@@ -69,12 +75,14 @@ func _ready() -> void:
 			var nearest_winner: Node2D = null
 			var nearest_winner_dist: float = INF
 			for unit in winning_units:
+				if unit.role == "goalie":
+					continue
 				var d: float = unit.position.distance_to(GameState.contest_crosshair_pos)
 				if d < nearest_winner_dist:
 					nearest_winner_dist = d
 					nearest_winner = unit
 			if nearest_winner != null:
-				nearest_winner.position = GameState.contest_crosshair_pos
+				nearest_winner.position = _safe_resolve_position(GameState.contest_crosshair_pos)
 
 			var nearest_loser: Node2D = null
 			var nearest_loser_dist: float = INF
@@ -86,7 +94,7 @@ func _ready() -> void:
 					nearest_loser_dist = d
 					nearest_loser = unit
 			if nearest_loser != null:
-				nearest_loser.position = GameState.contest_crosshair_pos
+				nearest_loser.position = _safe_resolve_position(GameState.contest_crosshair_pos)
 
 			set_aiming_unit(nearest_winner if nearest_winner != null else _get_centre_unit(attacking_team))
 		else:
@@ -102,6 +110,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	camera.position = camera.position.lerp(camera_target, CAMERA_SPEED * delta)
+	_check_role_rotation()
 
 # --- Private/internal helpers ---
 
@@ -110,6 +119,26 @@ func _get_goal_rect(sq: ColorRect) -> Rect2:
 		Vector2(sq.offset_left, sq.offset_top),
 		Vector2(sq.offset_right - sq.offset_left, sq.offset_bottom - sq.offset_top)
 	)
+
+func _safe_resolve_position(pos: Vector2) -> Vector2:
+	var goal_a_rect: Rect2 = _get_goal_rect(goal_square_a)
+	var goal_b_rect: Rect2 = _get_goal_rect(goal_square_b)
+	for rect in [goal_a_rect, goal_b_rect]:
+		if rect.has_point(pos):
+			var dist_left: float = abs(pos.x - rect.position.x)
+			var dist_right: float = abs(pos.x - rect.end.x)
+			var dist_top: float = abs(pos.y - rect.position.y)
+			var dist_bottom: float = abs(pos.y - rect.end.y)
+			var min_dist: float = min(min(dist_left, dist_right), min(dist_top, dist_bottom))
+			if min_dist == dist_left:
+				return Vector2(rect.position.x - 20.0, pos.y)
+			elif min_dist == dist_right:
+				return Vector2(rect.end.x + 20.0, pos.y)
+			elif min_dist == dist_top:
+				return Vector2(pos.x, rect.position.y - 20.0)
+			else:
+				return Vector2(pos.x, rect.end.y + 20.0)
+	return pos
 
 func _set_goalie_bounds() -> void:
 	for unit in all_units_a + all_units_b:
@@ -152,6 +181,7 @@ func _assign_defenders() -> void:
 		if unit != aiming_unit:
 			unit.is_defending = false
 			unit.assigned_target = null
+			unit.attack_role = unit.AttackRole.NONE
 
 	var targetable_attackers: Array = attacking_units.filter(
 		func(u): return u.role != "goalie"
@@ -208,6 +238,145 @@ func _assign_defenders() -> void:
 		else:
 			defender.set_as_defender(nearest, false)
 
+func _assign_attack_roles() -> void:
+	var attacking_units: Array = all_units_a if attacking_team == "A" else all_units_b
+	var eligible: Array = attacking_units.filter(
+		func(u): return u != aiming_unit and u.role != "goalie"
+	)
+	if eligible.size() < 3:
+		return
+
+	var goalie: Node2D = null
+	for u in attacking_units:
+		if u.role == "goalie":
+			goalie = u
+			break
+
+	var ch_pos: Vector2 = crosshair.position
+	eligible.sort_custom(func(a, b):
+		return a.position.distance_to(ch_pos) < b.position.distance_to(ch_pos)
+	)
+	runner = eligible[0]
+
+	var remaining: Array = [eligible[1], eligible[2]]
+	if goalie != null:
+		remaining.sort_custom(func(a, b):
+			return a.position.distance_to(goalie.position) < b.position.distance_to(goalie.position)
+		)
+	dragger = remaining[0]
+	prepper = remaining[1]
+
+	_update_attack_targets()
+
+func _update_attack_targets() -> void:
+	if runner == null or dragger == null or prepper == null:
+		return
+
+	var ch_pos: Vector2 = crosshair.position
+	var goalie: Node2D = null
+	var attacking_units: Array = all_units_a if attacking_team == "A" else all_units_b
+	for u in attacking_units:
+		if u.role == "goalie":
+			goalie = u
+			break
+
+	runner.set_attack_role(runner.AttackRole.RUNNER, ch_pos)
+
+	var in_defensive_half: bool
+	if attacking_team == "A":
+		in_defensive_half = aiming_unit.position.x > 1200.0
+	else:
+		in_defensive_half = aiming_unit.position.x < 1200.0
+
+	var dragger_target: Vector2
+	if goalie != null:
+		if in_defensive_half:
+			dragger_target = (prepper.position + goalie.position) / 2.0
+		else:
+			var top_point: Vector2 = Vector2(goalie.position.x, 0.0)
+			dragger_target = (goalie.position + top_point) / 2.0
+	else:
+		dragger_target = dragger.position
+	dragger.set_attack_role(dragger.AttackRole.DRAGGER, dragger_target)
+
+	var prepper_target: Vector2
+	if goalie != null:
+		if in_defensive_half:
+			var is_prepper_defensive: bool
+			if attacking_team == "A":
+				is_prepper_defensive = prepper.position.x > aiming_unit.position.x
+			else:
+				is_prepper_defensive = prepper.position.x < aiming_unit.position.x
+			if is_prepper_defensive:
+				prepper_target = goalie.position
+			else:
+				var defending_units: Array = all_units_b if attacking_team == "A" else all_units_a
+				var nearest_def: Node2D = null
+				var nearest_def_dist: float = INF
+				for u in defending_units:
+					var d: float = prepper.position.distance_to(u.position)
+					if d < nearest_def_dist:
+						nearest_def_dist = d
+						nearest_def = u
+				if nearest_def != null:
+					var away_dir: Vector2 = (prepper.position - nearest_def.position).normalized()
+					var target: Vector2 = prepper.position + away_dir * 200.0
+					var offset: Vector2 = target - aiming_unit.position
+					if offset.length() > crosshair.RADIUS_OUTER:
+						offset = offset.normalized() * crosshair.RADIUS_OUTER
+						target = aiming_unit.position + offset
+					if attacking_team == "A":
+						target.x = min(target.x, aiming_unit.position.x)
+					else:
+						target.x = max(target.x, aiming_unit.position.x)
+					prepper_target = target
+				else:
+					prepper_target = prepper.position
+		else:
+			prepper_target = (goalie.position + Vector2(goalie.position.x, 900.0)) / 2.0
+	else:
+		prepper_target = prepper.position
+	prepper.set_attack_role(prepper.AttackRole.PREPPER, prepper_target)
+
+func _check_role_rotation() -> void:
+	if runner == null or prepper == null:
+		return
+	var ch_pos: Vector2 = crosshair.position
+	var runner_dist: float = runner.position.distance_to(ch_pos)
+	var prepper_dist: float = prepper.position.distance_to(ch_pos)
+	if prepper_dist < runner_dist:
+		on_runner_rotation_needed()
+		return
+	attack_update_timer += get_process_delta_time()
+	if attack_update_timer >= ATTACK_UPDATE_INTERVAL:
+		attack_update_timer = 0.0
+		_update_attack_targets()
+
+func _assign_post_kick_attack_roles(kick_pos: Vector2) -> void:
+	var attacking_units: Array = all_units_a if attacking_team == "A" else all_units_b
+	var eligible: Array = attacking_units.filter(
+		func(u): return u != aiming_unit and u.role != "goalie"
+	)
+	if eligible.size() < 1:
+		return
+
+	eligible.sort_custom(func(a, b):
+		return a.position.distance_to(kick_pos) < b.position.distance_to(kick_pos)
+	)
+
+	var receiver: Node2D = eligible[0]
+	receiver.set_attack_role(receiver.AttackRole.RUNNER, kick_pos)
+
+	for i in range(1, eligible.size()):
+		var unit: Node2D = eligible[i]
+		var away_dir: Vector2 = (unit.position - kick_pos).normalized()
+		if away_dir == Vector2.ZERO:
+			away_dir = Vector2(1, 0)
+		var away_pos: Vector2 = unit.position + away_dir * 300.0
+		away_pos.x = clamp(away_pos.x, 50.0, PITCH_W - 50.0)
+		away_pos.y = clamp(away_pos.y, 50.0, PITCH_H - 50.0)
+		unit.set_attack_role(unit.AttackRole.DRAGGER, away_pos)
+
 func _update_goal_arrow() -> void:
 	var attacking_color: Color = Color.WHITE
 	if aiming_unit != null:
@@ -252,7 +421,6 @@ func _reset_positions() -> void:
 		unit.position = POSITIONS_A.get(unit.role, Vector2(1200, 450))
 	for unit in all_units_b:
 		unit.position = POSITIONS_B.get(unit.role, Vector2(1200, 450))
-	# Re-centre goalies after reset
 	_set_goalie_bounds()
 	GameState.return_scene = "res://Scenes/pitch.tscn"
 	GameState.contest_reason = "kickoff"
@@ -300,6 +468,7 @@ func set_aiming_unit(unit: Node2D) -> void:
 	crosshair.activate(aiming_unit)
 	_assign_defenders()
 	_update_goal_arrow()
+	_assign_attack_roles()
 
 func update_score() -> void:
 	score_label.text = str(GameState.score_a) + " - " + str(GameState.score_b)
@@ -308,6 +477,7 @@ func on_kick_resolved(winning_team: String, resolve_position: Vector2) -> void:
 	attacking_team = winning_team
 	GameState.attacking_team = winning_team
 
+	var safe_pos: Vector2 = _safe_resolve_position(resolve_position)
 	var goal_a_rect: Rect2 = _get_goal_rect(goal_square_a)
 	var goal_b_rect: Rect2 = _get_goal_rect(goal_square_b)
 
@@ -322,8 +492,27 @@ func on_kick_resolved(winning_team: String, resolve_position: Vector2) -> void:
 	var nearest: Node2D = null
 	var nearest_dist: float = INF
 	for unit in winning_units:
-		var d: float = unit.position.distance_to(resolve_position)
+		if unit.role == "goalie":
+			continue
+		var d: float = unit.position.distance_to(safe_pos)
 		if d < nearest_dist:
 			nearest_dist = d
 			nearest = unit
 	set_aiming_unit(nearest)
+
+func on_kick_launched(kick_pos: Vector2) -> void:
+	var defending_units: Array = all_units_b if attacking_team == "A" else all_units_a
+	for unit in defending_units:
+		if unit.role == "goalie":
+			continue
+		unit.set_attack_role(unit.AttackRole.RUNNER, kick_pos)
+	_assign_post_kick_attack_roles(kick_pos)
+
+func on_runner_rotation_needed() -> void:
+	var old_runner: Node2D = runner
+	var old_dragger: Node2D = dragger
+	var old_prepper: Node2D = prepper
+	runner = old_prepper
+	dragger = old_runner
+	prepper = old_dragger
+	_update_attack_targets()

@@ -82,6 +82,13 @@ role = "defence"
 unit_color = Color(0.8, 0.26666668, 0.8, 1)
 
 [node name="Crosshair" parent="." unique_id=402353958 instance=ExtResource("3_qkjbr")]
+RADIUS_MIDDLE = 350.0
+MOVE_SPEED = 350.0
+COUNTDOWN_TIME = {
+1: 0.5,
+2: 1.0,
+3: 1.5
+}
 
 [node name="UI" type="CanvasLayer" parent="." unique_id=1128041651]
 process_mode = 3
