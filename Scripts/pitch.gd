@@ -62,6 +62,9 @@ func _ready() -> void:
 # Handle returning from a Contest Game
 	if GameState.return_scene == "res://Scenes/pitch.tscn":
 		GameState.return_scene = ""
+		attacking_team = GameState.contest_winner if GameState.contest_winner != "" else "A"
+		GameState.attacking_team = attacking_team
+		GameState.return_scene = ""
 		if GameState.contest_reason == "clash" or GameState.contest_reason == "no_unit":
 			attacking_team = GameState.contest_winner
 			GameState.attacking_team = GameState.contest_winner
@@ -79,7 +82,8 @@ func _ready() -> void:
 			_set_aiming_unit(nearest if nearest != null else _get_centre_unit(attacking_team))
 			_update_score()
 			return
-
+	
+	
 	# Start the game
 	_set_aiming_unit(_get_centre_unit(attacking_team))
 	_update_score()

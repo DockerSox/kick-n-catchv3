@@ -11,11 +11,6 @@ func _ready() -> void:
 	win_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	ball.paddle_hit.connect(_on_paddle_hit)
 	ball.hit_bottom.connect(_on_ball_hit_bottom)
-
-	# Set two_player based on GameState when called from pitch
-	if GameState.return_scene != "":
-		two_player = true  # contest game is always 2 human inputs for now
-
 	await _start_round()
 
 func _start_round() -> void:
@@ -67,16 +62,12 @@ func _on_paddle_hit(area: Area2D) -> void:
 func _end_game(message: String, winner: String) -> void:
 	print("_end_game called, return_scene = '", GameState.return_scene, "'")
 	win_label.text = message
-	win_label.text = message
 	win_label.visible = true
 	GameState.contest_winner = winner
-
-	# If we were called from the pitch, return there after a delay
 	if GameState.return_scene != "":
 		await get_tree().create_timer(2.0).timeout
 		var return_to: String = GameState.return_scene
 		GameState.return_scene = ""
 		GameState.go_to_scene(return_to)
 	else:
-		# Standalone contest game — just freeze
 		get_tree().paused = true
