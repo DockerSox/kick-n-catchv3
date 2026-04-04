@@ -5,6 +5,8 @@ extends Node2D
 @onready var paddle_right: Area2D = $SubViewportContainer/SubViewport/ContestUnitB
 @onready var win_label: Label = $SubViewportContainer/SubViewport/UI/WinLabel
 
+var game_over: bool = false
+
 @export var two_player: bool = true
 
 func _ready() -> void:
@@ -14,6 +16,7 @@ func _ready() -> void:
 	await _start_round()
 
 func _start_round() -> void:
+	game_over = false
 	var screen: Vector2 = Vector2(460, 700)
 	ball.position = Vector2(screen.x / 2.0, screen.y / 3.0)
 	ball.velocity = Vector2.ZERO
@@ -38,6 +41,8 @@ func _start_round() -> void:
 	$SubViewportContainer/SubViewport.handle_input_locally = false
 
 func _on_ball_hit_bottom() -> void:
+	if game_over:
+		return
 	var left_launched: bool = paddle_left.state == paddle_left.State.LAUNCHED
 	var right_launched: bool = paddle_right.state == paddle_right.State.LAUNCHED
 	if left_launched and right_launched:
@@ -51,6 +56,8 @@ func _try_again() -> void:
 	await _start_round()
 
 func _on_paddle_hit(area: Area2D) -> void:
+	if game_over:
+		return
 	if area == paddle_left:
 		_end_game("Player 1 Wins!", "A")
 	elif area == paddle_right:
@@ -60,10 +67,22 @@ func _on_paddle_hit(area: Area2D) -> void:
 			_end_game("CPU Wins!", "B")
 
 func _end_game(message: String, winner: String) -> void:
-	print("_end_game called, return_scene = '", GameState.return_scene, "'")
+	if game_over:
+		return
+	game_over = true
+	
+	# Immediately freeze all movement inside the SubViewport
+	paddle_left.state = paddle_left.State.WAITING
+	paddle_right.state = paddle_right.State.WAITING
+	paddle_left.velocity = Vector2.ZERO
+	paddle_right.velocity = Vector2.ZERO
+	ball.active = false
+	ball.velocity = Vector2.ZERO
+	
 	win_label.text = message
 	win_label.visible = true
 	GameState.contest_winner = winner
+
 	if GameState.return_scene != "":
 		await get_tree().create_timer(2.0).timeout
 		var return_to: String = GameState.return_scene
