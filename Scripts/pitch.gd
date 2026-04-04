@@ -23,18 +23,18 @@ const PITCH_H: float = 900.0
 # Team A attacks left goal square, starts on right half
 # Team B attacks right goal square, starts on left half
 const POSITIONS_A: Dictionary = {
-	"centre":  Vector2(1200, 450),
+	"centre":  Vector2(1150, 450),   # slightly left of centre
 	"goalie":  Vector2(250, 450),
 	"winger":  Vector2(800, 150),
-	"defence":     Vector2(900, 450),
-	"attack":     Vector2(600, 450)
+	"defence": Vector2(900, 450),
+	"attack":  Vector2(600, 450)
 }
 const POSITIONS_B: Dictionary = {
-	"centre":  Vector2(1200, 450),
+	"centre":  Vector2(1250, 450),   # slightly right of centre
 	"goalie":  Vector2(2150, 450),
 	"winger":  Vector2(1600, 750),
-	"defence":     Vector2(1500, 450),
-	"attack":     Vector2(1800, 450)
+	"defence": Vector2(1500, 450),
+	"attack":  Vector2(1800, 450)
 }
 
 func _ready() -> void:

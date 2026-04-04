@@ -8,16 +8,8 @@ radius = 20.0
 [node name="Crosshair" type="Node2D" unique_id=402353958]
 script = ExtResource("1_aqujx")
 
-[node name="InnerRadius" type="Line2D" parent="." unique_id=1071222427]
+[node name="Circle" type="Line2D" parent="." unique_id=1071222427]
 width = 2.0
-
-[node name="MiddleRadius" type="Line2D" parent="." unique_id=306657295]
-width = 2.0
-default_color = Color(1, 1, 0, 1)
-
-[node name="OuterRadius" type="Line2D" parent="." unique_id=1679110945]
-width = 2.0
-default_color = Color(1, 0.53333336, 0, 1)
 
 [node name="CrosshairLines" type="Node2D" parent="." unique_id=367252110]
 

@@ -1,21 +1,21 @@
 extends Node2D
 
-# --- Radii for the three zones ---
-const RADIUS_INNER: float = 120.0
-const RADIUS_MIDDLE: float = 240.0
-const RADIUS_OUTER: float = 380.0
+# Single circle radius — roughly unit height
+const CROSSHAIR_RADIUS: float = 50.0
 
-# --- Crosshair movement speed ---
+# Maximum distance crosshair can move from aiming unit
+const RADIUS_INNER: float = 150.0
+const RADIUS_MIDDLE: float = 300.0
+const RADIUS_OUTER: float = 450.0
+
 const MOVE_SPEED: float = 300.0
 
-# --- Countdown durations per zone ---
 const COUNTDOWN_TIME: Dictionary = {
 	1: 1.5,
 	2: 2.5,
 	3: 4.0
 }
 
-# --- State ---
 var active: bool = false
 var aiming_unit: Node2D = null
 var pitch: Node2D = null
@@ -30,22 +30,28 @@ var kick_action: String = ""
 
 @onready var countdown_label: Label = $CountdownLabel
 @onready var collision_shape: CollisionShape2D = $CollisionArea/CollisionShape2D
-@onready var inner_radius: Line2D = $InnerRadius
-@onready var middle_radius: Line2D = $MiddleRadius
-@onready var outer_radius: Line2D = $OuterRadius
+@onready var circle: Line2D = $Circle
 @onready var line_h: Line2D = $CrosshairLines/LineH
 @onready var line_v: Line2D = $CrosshairLines/LineV
 @onready var collision_area: Area2D = $CollisionArea
 
 func _ready() -> void:
-	_draw_circle_line(inner_radius, RADIUS_INNER)
-	_draw_circle_line(middle_radius, RADIUS_MIDDLE)
-	_draw_circle_line(outer_radius, RADIUS_OUTER)
+	_draw_circle_line(circle, CROSSHAIR_RADIUS)
 	_draw_crosshair_lines()
+	# Set collision shape radius to match visual
+	var shape := CircleShape2D.new()
+	shape.radius = CROSSHAIR_RADIUS
+	collision_shape.shape = shape
 	countdown_label.visible = false
 	visible = false
 
 func activate(unit: Node2D) -> void:
+	aim_action_left = ""
+	aim_action_right = ""
+	aim_action_up = ""
+	aim_action_down = ""
+	kick_action = ""
+
 	aiming_unit = unit
 	pitch = get_parent()
 	position = unit.position
@@ -54,7 +60,6 @@ func activate(unit: Node2D) -> void:
 	countdown_active = false
 	countdown_label.visible = false
 
-	# Set input actions based on attacking team
 	var team: String = unit.team
 	var is_human: bool = (team == "A" and GameState.team_a_player == 1) or \
 						 (team == "B" and GameState.team_b_player == 1)
@@ -69,39 +74,34 @@ func activate(unit: Node2D) -> void:
 func _physics_process(delta: float) -> void:
 	if not active:
 		return
-
 	if countdown_active:
 		_handle_countdown(delta)
 		return
-
 	_handle_movement(delta)
 	_update_zone()
 	_update_countdown_label()
-
 	if kick_action != "" and Input.is_action_just_pressed(kick_action):
 		_start_countdown()
 
 func _handle_movement(delta: float) -> void:
 	var move: Vector2 = Vector2.ZERO
-	if Input.is_action_pressed(aim_action_left):
+	if aim_action_left != "" and Input.is_action_pressed(aim_action_left):
 		move.x -= 1
-	if Input.is_action_pressed(aim_action_right):
+	if aim_action_right != "" and Input.is_action_pressed(aim_action_right):
 		move.x += 1
-	if Input.is_action_pressed(aim_action_up):
+	if aim_action_up != "" and Input.is_action_pressed(aim_action_up):
 		move.y -= 1
-	if Input.is_action_pressed(aim_action_down):
+	if aim_action_down != "" and Input.is_action_pressed(aim_action_down):
 		move.y += 1
 
 	if move.length() > 0:
 		move = move.normalized()
 
-	# Clamp to outer radius from aiming unit
 	var new_pos: Vector2 = position + move * MOVE_SPEED * delta
 	var offset: Vector2 = new_pos - aiming_unit.position
 	if offset.length() > RADIUS_OUTER:
 		offset = offset.normalized() * RADIUS_OUTER
 		new_pos = aiming_unit.position + offset
-
 	position = new_pos
 
 func _update_zone() -> void:
@@ -123,12 +123,10 @@ func _start_countdown() -> void:
 
 func _handle_countdown(delta: float) -> void:
 	countdown_remaining -= delta
-	# Show remaining time as zone number counting down visually
 	var display: int = int(ceil(countdown_remaining / \
 		(COUNTDOWN_TIME[current_zone] / float(current_zone))))
 	display = clamp(display, 0, current_zone)
 	countdown_label.text = str(display)
-
 	if countdown_remaining <= 0.0:
 		_resolve_kick()
 
@@ -137,31 +135,26 @@ func _resolve_kick() -> void:
 	visible = false
 	countdown_active = false
 
-	# Find all units inside the collision area
 	var overlapping: Array = collision_area.get_overlapping_areas()
 	var units_a_inside: Array = []
 	var units_b_inside: Array = []
 
 	for area in overlapping:
-		if area.team == "A":
-			units_a_inside.append(area)
-		elif area.team == "B":
-			units_b_inside.append(area)
+		if area.has_method("set_as_aiming"):
+			if area.team == "A":
+				units_a_inside.append(area)
+			elif area.team == "B":
+				units_b_inside.append(area)
 
 	var attacking: String = aiming_unit.team
-	var _defending: String = "B" if attacking == "A" else "A"
 
 	if units_a_inside.size() > 0 and units_b_inside.size() == 0:
-		# Only team A inside — A gets possession
 		pitch.on_kick_resolved("A", position)
 	elif units_b_inside.size() > 0 and units_a_inside.size() == 0:
-		# Only team B inside — B gets possession
 		pitch.on_kick_resolved("B", position)
 	elif units_a_inside.size() > 0 and units_b_inside.size() > 0:
-		# Both teams inside — Contest Game
 		_trigger_contest(position)
 	else:
-		# Nobody inside — nearest unit from attacking team gets it
 		_no_unit_resolution(attacking, position)
 
 func _trigger_contest(pos: Vector2) -> void:
@@ -171,7 +164,6 @@ func _trigger_contest(pos: Vector2) -> void:
 	GameState.go_to_scene("res://Scenes/main.tscn")
 
 func _no_unit_resolution(attacking_team: String, pos: Vector2) -> void:
-	# Find nearest unit from attacking team
 	var all_units: Array = get_parent().all_units_a if attacking_team == "A" \
 		else get_parent().all_units_b
 	var nearest: Node2D = null
@@ -185,7 +177,6 @@ func _no_unit_resolution(attacking_team: String, pos: Vector2) -> void:
 		nearest.position = pos
 	pitch.on_kick_resolved(attacking_team, pos)
 
-# --- Drawing helpers ---
 func _draw_circle_line(line: Line2D, radius: float) -> void:
 	var points: PackedVector2Array = []
 	var steps: int = 64
@@ -195,6 +186,6 @@ func _draw_circle_line(line: Line2D, radius: float) -> void:
 	line.points = points
 
 func _draw_crosshair_lines() -> void:
-	var size: float = 20.0
+	var size: float = 15.0
 	line_h.points = [Vector2(-size, 0), Vector2(size, 0)]
 	line_v.points = [Vector2(0, -size), Vector2(0, size)]
