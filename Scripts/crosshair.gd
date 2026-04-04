@@ -98,10 +98,17 @@ func _handle_movement(delta: float) -> void:
 		move = move.normalized()
 
 	var new_pos: Vector2 = position + move * MOVE_SPEED * delta
+
+	# Clamp to outer radius from aiming unit
 	var offset: Vector2 = new_pos - aiming_unit.position
 	if offset.length() > RADIUS_OUTER:
 		offset = offset.normalized() * RADIUS_OUTER
 		new_pos = aiming_unit.position + offset
+
+	# Clamp to pitch bounds
+	new_pos.x = clamp(new_pos.x, 50.0, 2350.0)
+	new_pos.y = clamp(new_pos.y, 50.0, 850.0)
+
 	position = new_pos
 
 func _update_zone() -> void:

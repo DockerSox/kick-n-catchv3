@@ -1,6 +1,5 @@
 extends Node2D
 
-# --- Node references ---
 @onready var units_a: Node2D = $UnitsA
 @onready var units_b: Node2D = $UnitsB
 @onready var crosshair: Node2D = $Crosshair
@@ -9,28 +8,27 @@ extends Node2D
 @onready var camera: Camera2D = $Camera2D
 @onready var goal_square_a: ColorRect = $GoalSquareA
 @onready var goal_square_b: ColorRect = $GoalSquareB
+@onready var arrow_left: Label = $UI/ArrowLeft
+@onready var arrow_right: Label = $UI/ArrowRight
+@onready var match_end_label: Label = $UI/MatchEndLabel
 
-# --- Game state ---
 var attacking_team: String = "A"
 var aiming_unit: Node2D = null
 var all_units_a: Array = []
 var all_units_b: Array = []
 
-# Pitch dimensions
 const PITCH_W: float = 2400.0
 const PITCH_H: float = 900.0
 
-# Team A attacks left goal square, starts on right half
-# Team B attacks right goal square, starts on left half
 const POSITIONS_A: Dictionary = {
-	"centre":  Vector2(1150, 450),   # slightly left of centre
+	"centre":  Vector2(1150, 450),
 	"goalie":  Vector2(250, 450),
 	"winger":  Vector2(800, 150),
 	"defence": Vector2(900, 450),
 	"attack":  Vector2(600, 450)
 }
 const POSITIONS_B: Dictionary = {
-	"centre":  Vector2(1250, 450),   # slightly right of centre
+	"centre":  Vector2(1250, 450),
 	"goalie":  Vector2(2150, 450),
 	"winger":  Vector2(1600, 750),
 	"defence": Vector2(1500, 450),
@@ -38,7 +36,6 @@ const POSITIONS_B: Dictionary = {
 }
 
 func _ready() -> void:
-	print("attacking_team = ", attacking_team, " contest_winner = ", GameState.contest_winner)
 	all_units_a = units_a.get_children()
 	all_units_b = units_b.get_children()
 
@@ -53,7 +50,6 @@ func _ready() -> void:
 	$UI/PauseMenu/ResumeButton.pressed.connect(_on_resume)
 	$UI/PauseMenu/QuitButton.pressed.connect(_on_quit)
 
-	# Handle returning from a Contest Game
 	if GameState.return_scene == "res://Scenes/pitch.tscn":
 		GameState.return_scene = ""
 		attacking_team = GameState.contest_winner if GameState.contest_winner != "" else "A"
@@ -69,16 +65,19 @@ func _ready() -> void:
 					nearest = unit
 			if nearest != null:
 				nearest.position = GameState.contest_crosshair_pos
-			_set_aiming_unit(nearest if nearest != null else _get_centre_unit(attacking_team))
+			set_aiming_unit(nearest if nearest != null else _get_centre_unit(attacking_team))
 		else:
-			_set_aiming_unit(_get_centre_unit(attacking_team))
-		_update_score()
+			set_aiming_unit(_get_centre_unit(attacking_team))
+		update_score()
+		_update_goal_arrow()
 		return
 
-	# Normal start
 	attacking_team = GameState.attacking_team if GameState.attacking_team != "" else "A"
-	_set_aiming_unit(_get_centre_unit(attacking_team))
-	_update_score()
+	set_aiming_unit(_get_centre_unit(attacking_team))
+	update_score()
+	_update_goal_arrow()
+
+# --- Private/internal helpers ---
 
 func _set_goalie_bounds() -> void:
 	for unit in all_units_a + all_units_b:
@@ -94,71 +93,123 @@ func _get_centre_unit(team: String) -> Node2D:
 			return unit
 	return arr[0]
 
-func _set_aiming_unit(unit: Node2D) -> void:
-	# Clear previous aiming unit
+func _assign_defenders() -> void:
+	var defending_units: Array = all_units_b if attacking_team == "A" else all_units_a
+	var attacking_units: Array = all_units_a if attacking_team == "A" else all_units_b
+
+	# Clean up marker nodes
+	for child in get_children():
+		if child.name.ends_with("_target"):
+			child.queue_free()
+
+	# Reset all units
+	for unit in defending_units:
+		unit.is_defending = false
+		unit.human_defending = false
+		unit.assigned_target = null
+	for unit in attacking_units:
+		if unit != aiming_unit:
+			unit.is_defending = false
+			unit.assigned_target = null
+
+	# Exclude attacking goalie from targets
+	var targetable_attackers: Array = attacking_units.filter(
+		func(u): return u.role != "goalie"
+	)
+
+	# Determine if defending team is human controlled
+	var is_human_defending: bool = (attacking_team == "A" and GameState.team_b_player == 1) or \
+								   (attacking_team == "B" and GameState.team_a_player == 1)
+
+	# Find closest defender to aiming unit — they become the marker
+	var marker_defender: Node2D = null
+	var marker_dist: float = INF
+	for defender in defending_units:
+		if defender.role == "goalie":
+			continue
+		var d: float = defender.position.distance_to(aiming_unit.position)
+		if d < marker_dist:
+			marker_dist = d
+			marker_defender = defender
+
+	# Snap marker defender to defensive side of aiming unit
+	if marker_defender != null:
+		var defending_direction: float = -1.0 if attacking_team == "A" else 1.0
+		marker_defender.position = aiming_unit.position + Vector2(defending_direction * 35.0, 0.0)
+		# Marking unit is always AI controlled — never human
+		marker_defender.set_as_defender(aiming_unit, false, "", "", "", "", 40.0)
+
+	# Assign remaining defenders to remaining targetable attackers
+	var remaining_defenders: Array = defending_units.filter(
+		func(u): return u != marker_defender and u.role != "goalie"
+	)
+	var unassigned_attackers: Array = targetable_attackers.filter(
+		func(u): return u != aiming_unit
+	)
+
+	var human_assigned: bool = false
+
+	for defender in remaining_defenders:
+		if unassigned_attackers.is_empty():
+			break
+		var nearest: Node2D = null
+		var nearest_dist: float = INF
+		for attacker in unassigned_attackers:
+			var dist: float = defender.position.distance_to(attacker.position)  # was "d"
+			if dist < nearest_dist:
+				nearest_dist = dist
+				nearest = attacker
+		if nearest == null:
+			continue
+		unassigned_attackers.erase(nearest)
+
+		# Give human control to the first non-marker defender
+		var give_human: bool = is_human_defending and not human_assigned
+		if give_human:
+			human_assigned = true
+			var prefix: String = "p2_aim" if attacking_team == "A" else "p1_aim"
+			defender.set_as_defender(nearest, true,
+				prefix + "_up", prefix + "_down",
+				prefix + "_left", prefix + "_right")
+		else:
+			defender.set_as_defender(nearest, false)
+
+func _update_goal_arrow() -> void:
+	var attacking_color: Color = Color.WHITE
 	if aiming_unit != null:
-		aiming_unit.set_as_aiming(false)
-	aiming_unit = unit
-	aiming_unit.set_as_aiming(true)
-	# Move camera toward aiming unit
-	camera.position = aiming_unit.position
-	# Activate crosshair at aiming unit's position
-	crosshair.position = aiming_unit.position
-	crosshair.activate(aiming_unit)
+		attacking_color = aiming_unit.unit_color
 
-func _update_score() -> void:
-	score_label.text = str(GameState.score_a) + " - " + str(GameState.score_b)
+	var attacking_units: Array = all_units_a if attacking_team == "A" else all_units_b
+	var goalie: Node2D = null
+	for unit in attacking_units:
+		if unit.role == "goalie":
+			goalie = unit
+			break
 
-func _on_pause() -> void:
-	get_tree().paused = true
-	pause_menu.visible = true
-
-func _on_resume() -> void:
-	get_tree().paused = false
-	pause_menu.visible = false
-
-func _on_quit() -> void:
-	get_tree().paused = false
-	GameState.go_to_scene("res://Scenes/title.tscn")
-
-# Called by Crosshair when a kick resolves
-func on_kick_resolved(winning_team: String, resolve_position: Vector2) -> void:
-	attacking_team = winning_team
-	GameState.attacking_team = winning_team
-
-	# Check if resolved position is inside a goal square
-	var goal_a_rect: Rect2 = Rect2(goal_square_a.position, goal_square_a.size)
-	var goal_b_rect: Rect2 = Rect2(goal_square_b.position, goal_square_b.size)
-
-	if winning_team == "A" and goal_a_rect.has_point(resolve_position):
-		_score_goal("A")
-		return
-	elif winning_team == "B" and goal_b_rect.has_point(resolve_position):
-		_score_goal("B")
+	if goalie == null or aiming_unit == null:
+		arrow_left.visible = false
+		arrow_right.visible = false
 		return
 
-	# Find the new aiming unit — nearest on winning team to resolve_position
-	var winning_units: Array = all_units_a if winning_team == "A" else all_units_b
-	var nearest: Node2D = null
-	var nearest_dist: float = INF
-	for unit in winning_units:
-		var d: float = unit.position.distance_to(resolve_position)
-		if d < nearest_dist:
-			nearest_dist = d
-			nearest = unit
-	_set_aiming_unit(nearest)
+	if goalie.position.x < aiming_unit.position.x:
+		arrow_left.visible = true
+		arrow_right.visible = false
+		arrow_left.add_theme_color_override("font_color", attacking_color)
+	else:
+		arrow_left.visible = false
+		arrow_right.visible = true
+		arrow_right.add_theme_color_override("font_color", attacking_color)
 
 func _score_goal(team: String) -> void:
 	if team == "A":
 		GameState.score_a += 1
 	else:
 		GameState.score_b += 1
-	_update_score()
+	update_score()
 
 	if GameState.score_a >= 2 or GameState.score_b >= 2:
 		_end_match()
 	else:
-		# Reset positions and restart
 		await get_tree().create_timer(1.5).timeout
 		_reset_positions()
 
@@ -172,8 +223,71 @@ func _reset_positions() -> void:
 	GameState.go_to_scene("res://Scenes/main.tscn")
 
 func _end_match() -> void:
-	var _winner: String = "Team A Wins!" if GameState.score_a >= 2 else "Team B Wins!"
-	# For now just go back to title after delay
+	var winner_text: String = "Team A Wins!" if GameState.score_a >= 2 else "Team B Wins!"
+	match_end_label.text = winner_text
+	match_end_label.visible = true
+	match_end_label.process_mode = Node.PROCESS_MODE_ALWAYS
 	await get_tree().create_timer(3.0).timeout
 	GameState.reset_score()
 	GameState.go_to_scene("res://Scenes/title.tscn")
+
+# --- Signal callbacks ---
+
+func _on_pause() -> void:
+	get_tree().paused = true
+	pause_menu.visible = true
+
+func _on_resume() -> void:
+	get_tree().paused = false
+	pause_menu.visible = false
+
+func _on_quit() -> void:
+	get_tree().paused = false
+	GameState.go_to_scene("res://Scenes/title.tscn")
+
+# --- Public functions called by other nodes ---
+
+func set_aiming_unit(unit: Node2D) -> void:
+	if aiming_unit != null:
+		aiming_unit.set_as_aiming(false)
+	aiming_unit = unit
+	aiming_unit.set_as_aiming(true)
+
+	camera.position = aiming_unit.position
+	var viewport_size: Vector2 = get_viewport_rect().size
+	var half_w: float = (viewport_size.x / 2.0) / camera.zoom.x
+	var half_h: float = (viewport_size.y / 2.0) / camera.zoom.y
+	camera.position.x = clamp(camera.position.x, half_w, PITCH_W - half_w)
+	camera.position.y = clamp(camera.position.y, half_h, PITCH_H - half_h)
+
+	crosshair.position = aiming_unit.position
+	crosshair.activate(aiming_unit)
+	_assign_defenders()
+	_update_goal_arrow()
+
+func update_score() -> void:
+	score_label.text = str(GameState.score_a) + " - " + str(GameState.score_b)
+
+func on_kick_resolved(winning_team: String, resolve_position: Vector2) -> void:
+	attacking_team = winning_team
+	GameState.attacking_team = winning_team
+
+	var goal_a_rect: Rect2 = Rect2(goal_square_a.position, goal_square_a.size)
+	var goal_b_rect: Rect2 = Rect2(goal_square_b.position, goal_square_b.size)
+
+	if winning_team == "A" and goal_a_rect.has_point(resolve_position):
+		_score_goal("A")
+		return
+	elif winning_team == "B" and goal_b_rect.has_point(resolve_position):
+		_score_goal("B")
+		return
+
+	var winning_units: Array = all_units_a if winning_team == "A" else all_units_b
+	var nearest: Node2D = null
+	var nearest_dist: float = INF
+	for unit in winning_units:
+		var d: float = unit.position.distance_to(resolve_position)
+		if d < nearest_dist:
+			nearest_dist = d
+			nearest = unit
+	set_aiming_unit(nearest)
