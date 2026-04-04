@@ -38,37 +38,26 @@ const POSITIONS_B: Dictionary = {
 }
 
 func _ready() -> void:
-	# Collect unit arrays
 	all_units_a = units_a.get_children()
 	all_units_b = units_b.get_children()
 
-	# Position all units
 	for unit in all_units_a:
 		unit.position = POSITIONS_A.get(unit.role, Vector2(1200, 450))
 	for unit in units_b.get_children():
 		unit.position = POSITIONS_B.get(unit.role, Vector2(1200, 450))
 
-	# Set goalie constraints
 	_set_goalie_bounds()
 
-	# Connect pause button
 	$UI/PauseButton.pressed.connect(_on_pause)
 	$UI/PauseMenu/ResumeButton.pressed.connect(_on_resume)
 	$UI/PauseMenu/QuitButton.pressed.connect(_on_quit)
 
-	# Determine attacking team from GameState
-	attacking_team = GameState.attacking_team if GameState.attacking_team != "" else "A"
-
-# Handle returning from a Contest Game
+	# Handle returning from a Contest Game
 	if GameState.return_scene == "res://Scenes/pitch.tscn":
 		GameState.return_scene = ""
 		attacking_team = GameState.contest_winner if GameState.contest_winner != "" else "A"
 		GameState.attacking_team = attacking_team
-		GameState.return_scene = ""
 		if GameState.contest_reason == "clash" or GameState.contest_reason == "no_unit":
-			attacking_team = GameState.contest_winner
-			GameState.attacking_team = GameState.contest_winner
-			# Find nearest unit to contest position on winning team
 			var winning_units: Array = all_units_a if attacking_team == "A" else all_units_b
 			var nearest: Node2D = null
 			var nearest_dist: float = INF
@@ -80,11 +69,13 @@ func _ready() -> void:
 			if nearest != null:
 				nearest.position = GameState.contest_crosshair_pos
 			_set_aiming_unit(nearest if nearest != null else _get_centre_unit(attacking_team))
-			_update_score()
-			return
-	
-	
-	# Start the game
+		else:
+			_set_aiming_unit(_get_centre_unit(attacking_team))
+		_update_score()
+		return
+
+	# Normal start
+	attacking_team = GameState.attacking_team if GameState.attacking_team != "" else "A"
 	_set_aiming_unit(_get_centre_unit(attacking_team))
 	_update_score()
 
@@ -172,10 +163,9 @@ func _score_goal(team: String) -> void:
 
 func _reset_positions() -> void:
 	for unit in all_units_a:
-		unit.position = POSITIONS_A.get(unit.role, Vector2(800, 1200))
+		unit.position = POSITIONS_A.get(unit.role, Vector2(1200, 450))
 	for unit in all_units_b:
-		unit.position = POSITIONS_B.get(unit.role, Vector2(800, 1200))
-	# Contest game to decide who attacks after reset
+		unit.position = POSITIONS_B.get(unit.role, Vector2(1200, 450))
 	GameState.return_scene = "res://Scenes/pitch.tscn"
 	GameState.contest_reason = "kickoff"
 	GameState.go_to_scene("res://Scenes/main.tscn")
