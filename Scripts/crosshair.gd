@@ -31,7 +31,7 @@ var kick_action: String = ""
 @onready var collision_area: Area2D = $CollisionArea
 
 func _ready() -> void:
-	_draw_circle_line(circle, CROSSHAIR_RADIUS)
+	_draw_circle(circle, CROSSHAIR_RADIUS)
 	_draw_crosshair_lines()
 	var shape := CircleShape2D.new()
 	shape.radius = CROSSHAIR_RADIUS
@@ -54,11 +54,14 @@ func activate(unit: Node2D) -> void:
 	countdown_active = false
 	countdown_label.visible = false
 
-	# Restore visuals
+	# Aiming visuals — team's true colour
+	var aiming_color: Color = unit.unit_color
+	circle.default_color = aiming_color
 	line_h.visible = true
 	line_v.visible = true
-	circle.default_color = Color(1.0, 1.0, 1.0, 1.0)
-	countdown_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+	line_h.default_color = aiming_color
+	line_v.default_color = aiming_color
+	countdown_label.add_theme_color_override("font_color", Color.WHITE)
 
 	var team: String = unit.team
 	var is_human: bool = (team == "A" and GameState.team_a_player == 1) or \
@@ -123,16 +126,16 @@ func _update_countdown_label() -> void:
 func _start_countdown() -> void:
 	countdown_active = true
 	countdown_remaining = COUNTDOWN_TIME[current_zone]
-	# Visual feedback — hide lines, grey out circle
+	# Countdown visuals — white circle, hide lines
+	circle.default_color = Color.WHITE
 	line_h.visible = false
 	line_v.visible = false
-	circle.default_color = Color(0.7, 0.7, 0.7, 1.0)
-	countdown_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 1.0))
+	countdown_label.add_theme_color_override("font_color", Color.WHITE)
 
 func _handle_countdown(delta: float) -> void:
 	countdown_remaining -= delta
 	var display: int = int(ceil(countdown_remaining / \
-		(COUNTDOWN_TIME[current_zone] / float(current_zone))))
+	(COUNTDOWN_TIME[current_zone] / float(current_zone + 0.0))))
 	display = clamp(display, 0, current_zone)
 	countdown_label.text = str(display)
 	if countdown_remaining <= 0.0:
@@ -171,13 +174,13 @@ func _trigger_contest(pos: Vector2) -> void:
 	GameState.contest_crosshair_pos = pos
 	GameState.go_to_scene("res://Scenes/main.tscn")
 
-func _no_unit_resolution(attacking_team: String, pos: Vector2) -> void:
+func _no_unit_resolution(_attacking_team: String, pos: Vector2) -> void:
 	GameState.return_scene = "res://Scenes/pitch.tscn"
 	GameState.contest_reason = "no_unit"
 	GameState.contest_crosshair_pos = pos
 	GameState.go_to_scene("res://Scenes/main.tscn")
 
-func _draw_circle_line(line: Line2D, radius: float) -> void:
+func _draw_circle(line: Line2D, radius: float) -> void:
 	var points: PackedVector2Array = []
 	var steps: int = 64
 	for i in range(steps + 1):
@@ -186,6 +189,5 @@ func _draw_circle_line(line: Line2D, radius: float) -> void:
 	line.points = points
 
 func _draw_crosshair_lines() -> void:
-	var size: float = 15.0
-	line_h.points = [Vector2(-size, 0), Vector2(size, 0)]
-	line_v.points = [Vector2(0, -size), Vector2(0, size)]
+	line_h.points = [Vector2(-CROSSHAIR_RADIUS, 0), Vector2(CROSSHAIR_RADIUS, 0)]
+	line_v.points = [Vector2(0, -CROSSHAIR_RADIUS), Vector2(0, CROSSHAIR_RADIUS)]

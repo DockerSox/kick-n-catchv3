@@ -49,10 +49,6 @@ func _ready() -> void:
 	_set_goalie_bounds()
 	_set_forbidden_zones()
 
-	# Debug — confirm goal rects are correct
-	print("goal_a_rect: ", _get_goal_rect(goal_square_a))
-	print("goal_b_rect: ", _get_goal_rect(goal_square_b))
-
 	$UI/PauseButton.pressed.connect(_on_pause)
 	$UI/PauseMenu/ResumeButton.pressed.connect(_on_resume)
 	$UI/PauseMenu/QuitButton.pressed.connect(_on_quit)

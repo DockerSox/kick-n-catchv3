@@ -43,10 +43,7 @@ func _start_round() -> void:
 func _on_ball_hit_bottom() -> void:
 	if game_over:
 		return
-	var left_launched: bool = paddle_left.state == paddle_left.State.LAUNCHED
-	var right_launched: bool = paddle_right.state == paddle_right.State.LAUNCHED
-	if (left_launched and right_launched) or (not left_launched and not right_launched):
-		await _try_again()
+	await _try_again()
 
 func _try_again() -> void:
 	win_label.text = "TRY AGAIN"
