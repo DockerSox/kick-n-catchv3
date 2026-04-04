@@ -38,6 +38,11 @@ const POSITIONS_B: Dictionary = {
 }
 
 func _ready() -> void:
+	pause_menu.process_mode = Node.PROCESS_MODE_ALWAYS
+	for child in pause_menu.get_children():
+		child.process_mode = Node.PROCESS_MODE_ALWAYS
+	$UI.process_mode = Node.PROCESS_MODE_ALWAYS
+	
 	all_units_a = units_a.get_children()
 	all_units_b = units_b.get_children()
 
