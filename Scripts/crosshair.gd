@@ -171,18 +171,11 @@ func _trigger_contest(pos: Vector2) -> void:
 	GameState.go_to_scene("res://Scenes/main.tscn")
 
 func _no_unit_resolution(attacking_team: String, pos: Vector2) -> void:
-	var all_units: Array = get_parent().all_units_a if attacking_team == "A" \
-		else get_parent().all_units_b
-	var nearest: Node2D = null
-	var nearest_dist: float = INF
-	for unit in all_units:
-		var d: float = unit.position.distance_to(pos)
-		if d < nearest_dist:
-			nearest_dist = d
-			nearest = unit
-	if nearest != null:
-		nearest.position = pos
-	pitch.on_kick_resolved(attacking_team, pos)
+	# No units in crosshair — trigger a Contest Game
+	GameState.return_scene = "res://Scenes/pitch.tscn"
+	GameState.contest_reason = "no_unit"
+	GameState.contest_crosshair_pos = pos
+	GameState.go_to_scene("res://Scenes/main.tscn")
 
 func _draw_circle_line(line: Line2D, radius: float) -> void:
 	var points: PackedVector2Array = []

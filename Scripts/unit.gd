@@ -12,6 +12,7 @@ var constrained: bool = false
 var is_defending: bool = false
 var human_defending: bool = false
 var stop_distance: float = 20.0
+var forbidden_rects: Array = []
 
 # Input actions for human-controlled defender
 var defend_up: String = ""
@@ -34,10 +35,23 @@ func _physics_process(delta: float) -> void:
 		return
 	if is_defending:
 		if human_defending:
-			print(name, " human defending, defend_up=", defend_up)
+			#print(name, " human defending, defend_up=", defend_up)
 			_handle_human_defend(delta)
 		elif assigned_target != null:
 			_move_toward_target(delta)
+
+func _move_toward_target(delta: float) -> void:
+	if assigned_target == null:
+		return
+	var dist: float = position.distance_to(assigned_target.position)
+	if dist < stop_distance:
+		return
+	var dir: Vector2 = (assigned_target.position - position).normalized()
+	var new_pos: Vector2 = position + dir * MOVE_SPEED * delta
+	if constrained:
+		new_pos = new_pos.clamp(bounds_rect.position, bounds_rect.end)
+	new_pos = _avoid_forbidden(new_pos)
+	position = new_pos
 
 func _handle_human_defend(delta: float) -> void:
 	var move: Vector2 = Vector2.ZERO
@@ -54,19 +68,14 @@ func _handle_human_defend(delta: float) -> void:
 	var new_pos: Vector2 = position + move * DEFEND_SPEED * delta
 	if constrained:
 		new_pos = new_pos.clamp(bounds_rect.position, bounds_rect.end)
+	new_pos = _avoid_forbidden(new_pos)
 	position = new_pos
 
-func _move_toward_target(delta: float) -> void:
-	if assigned_target == null:
-		return
-	var dist: float = position.distance_to(assigned_target.position)
-	if dist < stop_distance:
-		return
-	var dir: Vector2 = (assigned_target.position - position).normalized()
-	var new_pos: Vector2 = position + dir * MOVE_SPEED * delta
-	if constrained:
-		new_pos = new_pos.clamp(bounds_rect.position, bounds_rect.end)
-	position = new_pos
+func _avoid_forbidden(new_pos: Vector2) -> Vector2:
+	for rect in forbidden_rects:
+		if rect.has_point(new_pos):
+			return position  # cancel the move
+	return new_pos
 
 func set_as_aiming(value: bool) -> void:
 	is_aiming = value
@@ -78,7 +87,7 @@ func set_as_aiming(value: bool) -> void:
 		color_rect.color = unit_color
 
 func set_as_defender(target: Node2D, is_human: bool, up: String = "", down: String = "", left: String = "", right: String = "", stop_dist: float = 20.0) -> void:
-	print(name, " set_as_defender human=", is_human, " up=", up)
+	#print(name, " set_as_defender human=", is_human, " up=", up)
 	is_defending = true
 	assigned_target = target
 	human_defending = is_human

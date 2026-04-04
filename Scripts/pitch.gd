@@ -16,7 +16,9 @@ var attacking_team: String = "A"
 var aiming_unit: Node2D = null
 var all_units_a: Array = []
 var all_units_b: Array = []
+var camera_target: Vector2 = Vector2.ZERO
 
+const CAMERA_SPEED: float = 3.0
 const PITCH_W: float = 2400.0
 const PITCH_H: float = 900.0
 
@@ -45,6 +47,7 @@ func _ready() -> void:
 		unit.position = POSITIONS_B.get(unit.role, Vector2(1200, 450))
 
 	_set_goalie_bounds()
+	_set_forbidden_zones()
 
 	$UI/PauseButton.pressed.connect(_on_pause)
 	$UI/PauseMenu/ResumeButton.pressed.connect(_on_resume)
@@ -56,16 +59,33 @@ func _ready() -> void:
 		GameState.attacking_team = attacking_team
 		if GameState.contest_reason == "clash" or GameState.contest_reason == "no_unit":
 			var winning_units: Array = all_units_a if attacking_team == "A" else all_units_b
-			var nearest: Node2D = null
-			var nearest_dist: float = INF
+			var losing_units: Array = all_units_b if attacking_team == "A" else all_units_a
+	
+			# Move nearest winning unit to crosshair position
+			var nearest_winner: Node2D = null
+			var nearest_winner_dist: float = INF
 			for unit in winning_units:
 				var d: float = unit.position.distance_to(GameState.contest_crosshair_pos)
-				if d < nearest_dist:
-					nearest_dist = d
-					nearest = unit
-			if nearest != null:
-				nearest.position = GameState.contest_crosshair_pos
-			set_aiming_unit(nearest if nearest != null else _get_centre_unit(attacking_team))
+				if d < nearest_winner_dist:
+					nearest_winner_dist = d
+					nearest_winner = unit
+			if nearest_winner != null:
+				nearest_winner.position = GameState.contest_crosshair_pos
+
+			# Move nearest losing unit to crosshair position as marking unit
+			var nearest_loser: Node2D = null
+			var nearest_loser_dist: float = INF
+			for unit in losing_units:
+				if unit.role == "goalie":
+					continue
+				var d: float = unit.position.distance_to(GameState.contest_crosshair_pos)
+				if d < nearest_loser_dist:
+					nearest_loser_dist = d
+					nearest_loser = unit
+			if nearest_loser != null:
+				nearest_loser.position = GameState.contest_crosshair_pos
+
+			set_aiming_unit(nearest_winner if nearest_winner != null else _get_centre_unit(attacking_team))
 		else:
 			set_aiming_unit(_get_centre_unit(attacking_team))
 		update_score()
@@ -77,14 +97,35 @@ func _ready() -> void:
 	update_score()
 	_update_goal_arrow()
 
+func _process(delta: float) -> void:
+	camera.position = camera.position.lerp(camera_target, CAMERA_SPEED * delta)
+
 # --- Private/internal helpers ---
 
 func _set_goalie_bounds() -> void:
 	for unit in all_units_a + all_units_b:
 		if unit.role == "goalie":
 			var sq: ColorRect = goal_square_a if unit.team == "A" else goal_square_b
+			# Use offset values which is how ColorRect stores position in Node2D scenes
+			var rect_pos: Vector2 = Vector2(sq.offset_left, sq.offset_top)
+			var rect_size: Vector2 = Vector2(sq.offset_right - sq.offset_left, sq.offset_bottom - sq.offset_top)
 			unit.constrained = true
-			unit.bounds_rect = Rect2(sq.position, sq.size)
+			unit.bounds_rect = Rect2(rect_pos, rect_size)
+
+func _set_forbidden_zones() -> void:
+	var goal_a_rect: Rect2 = Rect2(
+		Vector2(goal_square_a.offset_left, goal_square_a.offset_top),
+		Vector2(goal_square_a.offset_right - goal_square_a.offset_left,
+				goal_square_a.offset_bottom - goal_square_a.offset_top)
+	)
+	var goal_b_rect: Rect2 = Rect2(
+		Vector2(goal_square_b.offset_left, goal_square_b.offset_top),
+		Vector2(goal_square_b.offset_right - goal_square_b.offset_left,
+				goal_square_b.offset_bottom - goal_square_b.offset_top)
+	)
+	for unit in all_units_a + all_units_b:
+		if unit.role != "goalie":
+			unit.forbidden_rects = [goal_a_rect, goal_b_rect]
 
 func _get_centre_unit(team: String) -> Node2D:
 	var arr: Array = all_units_a if team == "A" else all_units_b
@@ -253,12 +294,13 @@ func set_aiming_unit(unit: Node2D) -> void:
 	aiming_unit = unit
 	aiming_unit.set_as_aiming(true)
 
-	camera.position = aiming_unit.position
+	# Set camera target with clamping
 	var viewport_size: Vector2 = get_viewport_rect().size
 	var half_w: float = (viewport_size.x / 2.0) / camera.zoom.x
 	var half_h: float = (viewport_size.y / 2.0) / camera.zoom.y
-	camera.position.x = clamp(camera.position.x, half_w, PITCH_W - half_w)
-	camera.position.y = clamp(camera.position.y, half_h, PITCH_H - half_h)
+	camera_target = aiming_unit.position
+	camera_target.x = clamp(camera_target.x, half_w, PITCH_W - half_w)
+	camera_target.y = clamp(camera_target.y, half_h, PITCH_H - half_h)
 
 	crosshair.position = aiming_unit.position
 	crosshair.activate(aiming_unit)
@@ -272,8 +314,16 @@ func on_kick_resolved(winning_team: String, resolve_position: Vector2) -> void:
 	attacking_team = winning_team
 	GameState.attacking_team = winning_team
 
-	var goal_a_rect: Rect2 = Rect2(goal_square_a.position, goal_square_a.size)
-	var goal_b_rect: Rect2 = Rect2(goal_square_b.position, goal_square_b.size)
+	var goal_a_rect: Rect2 = Rect2(
+		Vector2(goal_square_a.offset_left, goal_square_a.offset_top),
+		Vector2(goal_square_a.offset_right - goal_square_a.offset_left,
+				goal_square_a.offset_bottom - goal_square_a.offset_top)
+	)
+	var goal_b_rect: Rect2 = Rect2(
+		Vector2(goal_square_b.offset_left, goal_square_b.offset_top),
+		Vector2(goal_square_b.offset_right - goal_square_b.offset_left,
+				goal_square_b.offset_bottom - goal_square_b.offset_top)
+	)
 
 	if winning_team == "A" and goal_a_rect.has_point(resolve_position):
 		_score_goal("A")
