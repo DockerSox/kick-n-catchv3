@@ -11,7 +11,10 @@ extends Node2D
 @onready var arrow_left: Label = $UI/ArrowLeft
 @onready var arrow_right: Label = $UI/ArrowRight
 @onready var match_end_label: Label = $UI/MatchEndLabel
+@onready var defender_arrow: Label = $UI/DefenderArrow
+@onready var goal_label: Label = $UI/GoalLabel
 
+var human_defender: Node2D = null
 var attacking_team: String = "A"
 var aiming_unit: Node2D = null
 var all_units_a: Array = []
@@ -111,6 +114,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	camera.position = camera.position.lerp(camera_target, CAMERA_SPEED * delta)
 	_check_role_rotation()
+	_update_defender_arrow()
 
 # --- Private/internal helpers ---
 
@@ -166,6 +170,7 @@ func _get_centre_unit(team: String) -> Node2D:
 	return arr[0]
 
 func _assign_defenders() -> void:
+	human_defender = null
 	var defending_units: Array = all_units_b if attacking_team == "A" else all_units_a
 	var attacking_units: Array = all_units_a if attacking_team == "A" else all_units_b
 
@@ -177,6 +182,8 @@ func _assign_defenders() -> void:
 		unit.is_defending = false
 		unit.human_defending = false
 		unit.assigned_target = null
+		unit.set_human_defender_highlight(false)
+
 	for unit in attacking_units:
 		if unit != aiming_unit:
 			unit.is_defending = false
@@ -231,12 +238,15 @@ func _assign_defenders() -> void:
 		var give_human: bool = is_human_defending and not human_assigned
 		if give_human:
 			human_assigned = true
+			human_defender = defender
 			var prefix: String = "p2_aim" if attacking_team == "A" else "p1_aim"
 			defender.set_as_defender(nearest, true,
 				prefix + "_up", prefix + "_down",
 				prefix + "_left", prefix + "_right")
+			defender.set_human_defender_highlight(true)
 		else:
 			defender.set_as_defender(nearest, false)
+			defender.set_human_defender_highlight(false)
 
 func _assign_attack_roles() -> void:
 	var attacking_units: Array = all_units_a if attacking_team == "A" else all_units_b
@@ -404,16 +414,33 @@ func _update_goal_arrow() -> void:
 		arrow_right.add_theme_color_override("font_color", attacking_color)
 
 func _score_goal(team: String) -> void:
+	# Determine which player scored
+	var goal_text: String
 	if team == "A":
 		GameState.score_a += 1
+		goal_text = "P1 GOAL!" if GameState.team_a_player == 1 else "TEAM A GOAL!"
 	else:
 		GameState.score_b += 1
+		goal_text = "P2 GOAL!" if GameState.team_b_player == 1 else "TEAM B GOAL!"
+
+	# Show goal text with brief freeze
+	goal_label.text = goal_text
+	goal_label.add_theme_color_override("font_color",
+		aiming_unit.unit_color if aiming_unit != null else Color.WHITE)
+	goal_label.visible = true
+	get_tree().paused = true
+	goal_label.process_mode = Node.PROCESS_MODE_ALWAYS
+
+	await goal_label.get_tree().create_timer(1.5).timeout
+
+	get_tree().paused = false
+	goal_label.visible = false
 	update_score()
 
 	if GameState.score_a >= 2 or GameState.score_b >= 2:
 		_end_match()
 	else:
-		await get_tree().create_timer(1.5).timeout
+		await get_tree().create_timer(0.5).timeout
 		_reset_positions()
 
 func _reset_positions() -> void:
@@ -515,4 +542,47 @@ func on_runner_rotation_needed() -> void:
 	runner = old_prepper
 	dragger = old_runner
 	prepper = old_dragger
+	# Nudge new dragger away from crosshair immediately
+	if dragger != null:
+		var away_dir: Vector2 = (dragger.position - crosshair.position).normalized()
+		if away_dir == Vector2.ZERO:
+			away_dir = Vector2(1.0, 0.0)
+		dragger.position += away_dir * 30.0
 	_update_attack_targets()
+
+func _update_defender_arrow() -> void:
+	if human_defender == null:
+		defender_arrow.visible = false
+		return
+
+	# Convert unit world position to screen position
+	var screen_pos: Vector2 = get_viewport().get_camera_2d().get_screen_center_position()
+	var viewport_size: Vector2 = get_viewport_rect().size
+	var half_size: Vector2 = viewport_size / 2.0
+
+	# Get unit position relative to camera centre
+	var unit_screen_x: float = (human_defender.position.x - screen_pos.x) * camera.zoom.x + half_size.x
+	var unit_screen_y: float = (human_defender.position.y - screen_pos.y) * camera.zoom.y + half_size.y
+
+	var on_screen: bool = unit_screen_x >= 0 and unit_screen_x <= viewport_size.x and \
+						  unit_screen_y >= 0 and unit_screen_y <= viewport_size.y
+
+	if on_screen:
+		defender_arrow.visible = false
+		return
+
+	# Show arrow on the appropriate side
+	defender_arrow.visible = true
+	defender_arrow.add_theme_color_override("font_color", human_defender.unit_color)
+
+	# Clamp y to viewport bounds with padding
+	var arrow_y: float = clamp(unit_screen_y, 30.0, viewport_size.y - 30.0)
+
+	if unit_screen_x < 0:
+		# Off left side
+		defender_arrow.text = "◀"
+		defender_arrow.position = Vector2(10.0, arrow_y - 20.0)
+	else:
+		# Off right side
+		defender_arrow.text = "▶"
+		defender_arrow.position = Vector2(viewport_size.x - 40.0, arrow_y - 20.0)

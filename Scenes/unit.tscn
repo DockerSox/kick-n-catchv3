@@ -8,6 +8,12 @@ size = Vector2(30, 50)
 [node name="Unit" type="Area2D" unique_id=253754495]
 script = ExtResource("1_yjw0f")
 
+[node name="Border" type="ColorRect" parent="." unique_id=69689989]
+offset_left = -17.0
+offset_top = -27.0
+offset_right = 17.0
+offset_bottom = 27.0
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=446269883]
 shape = SubResource("RectangleShape2D_fc6p6")
 

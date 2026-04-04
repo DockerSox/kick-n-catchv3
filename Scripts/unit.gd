@@ -36,10 +36,12 @@ const DEFEND_SPEED: float = 180.0
 
 @onready var color_rect: ColorRect = $ColorRect
 @onready var name_label: Label = $NameLabel
+@onready var border: ColorRect = $Border
 
 func _ready() -> void:
 	color_rect.color = unit_color
 	name_label.text = role.substr(0, 2).to_upper()
+	border.visible = false
 
 func _physics_process(delta: float) -> void:
 	if role == "goalie":
@@ -54,6 +56,9 @@ func _physics_process(delta: float) -> void:
 		return
 	if attack_role != AttackRole.NONE:
 		_handle_attack_movement(delta)
+
+func set_human_defender_highlight(value: bool) -> void:
+	border.visible = value
 
 func _handle_attack_movement(delta: float) -> void:
 	match attack_role:
@@ -76,6 +81,11 @@ func _handle_runner(delta: float) -> void:
 			runner_reached = true
 			runner_reached_timer = RUNNER_REACHED_DELAY
 	else:
+		# If crosshair has moved significantly, reset runner state
+		if dist > RUNNER_REACH_DIST * 3.0:
+			runner_reached = false
+			runner_timer = 0.0
+			return
 		runner_reached_timer += delta
 		if runner_reached_timer >= RUNNER_REACHED_DELAY:
 			var pitch: Node = get_parent().get_parent()
@@ -129,7 +139,25 @@ func _handle_human_defend(delta: float) -> void:
 func _avoid_forbidden(new_pos: Vector2) -> Vector2:
 	for rect in forbidden_rects:
 		if rect.has_point(new_pos):
-			return position
+			# Slide along the nearest edge instead of cancelling
+			var current_in_rect: bool = rect.has_point(position)
+			if current_in_rect:
+				return position  # already inside, don't move further
+			
+			# Find which axis to slide on
+			var from_left: bool = position.x < rect.position.x
+			var from_right: bool = position.x > rect.end.x
+			var from_top: bool = position.y < rect.position.y
+			var from_bottom: bool = position.y > rect.end.y
+
+			if from_left or from_right:
+				# Approaching horizontally — allow vertical sliding
+				return Vector2(position.x, new_pos.y)
+			elif from_top or from_bottom:
+				# Approaching vertically — allow horizontal sliding
+				return Vector2(new_pos.x, position.y)
+			else:
+				return position
 	return new_pos
 
 func set_as_aiming(value: bool) -> void:

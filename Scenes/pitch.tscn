@@ -82,6 +82,7 @@ role = "defence"
 unit_color = Color(0.8, 0.26666668, 0.8, 1)
 
 [node name="Crosshair" parent="." unique_id=402353958 instance=ExtResource("3_qkjbr")]
+RADIUS_INNER = 200.0
 RADIUS_MIDDLE = 350.0
 MOVE_SPEED = 350.0
 COUNTDOWN_TIME = {
@@ -195,5 +196,23 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_font_sizes/font_size = 72
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="DefenderArrow" type="Label" parent="UI" unique_id=1258947356]
+visible = false
+offset_right = 40.0
+offset_bottom = 23.0
+theme_override_font_sizes/font_size = 36
+
+[node name="GoalLabel" type="Label" parent="UI" unique_id=504640291]
+process_mode = 3
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/font_size = 96
 horizontal_alignment = 1
 vertical_alignment = 1
