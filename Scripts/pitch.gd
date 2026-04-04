@@ -38,6 +38,7 @@ const POSITIONS_B: Dictionary = {
 }
 
 func _ready() -> void:
+	print("attacking_team = ", attacking_team, " contest_winner = ", GameState.contest_winner)
 	all_units_a = units_a.get_children()
 	all_units_b = units_b.get_children()
 

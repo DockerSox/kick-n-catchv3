@@ -70,23 +70,18 @@ func _end_game(message: String, winner: String) -> void:
 	if game_over:
 		return
 	game_over = true
-	
-	# Immediately freeze all movement inside the SubViewport
 	paddle_left.state = paddle_left.State.WAITING
 	paddle_right.state = paddle_right.State.WAITING
 	paddle_left.velocity = Vector2.ZERO
 	paddle_right.velocity = Vector2.ZERO
 	ball.active = false
 	ball.velocity = Vector2.ZERO
-	
 	win_label.text = message
 	win_label.visible = true
 	GameState.contest_winner = winner
-
 	if GameState.return_scene != "":
 		await get_tree().create_timer(2.0).timeout
-		var return_to: String = GameState.return_scene
-		GameState.return_scene = ""
-		GameState.go_to_scene(return_to)
+		GameState.go_to_scene(GameState.return_scene)
+		# Do NOT clear return_scene here — pitch.gd reads and clears it
 	else:
 		get_tree().paused = true
