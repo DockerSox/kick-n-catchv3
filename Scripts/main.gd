@@ -65,6 +65,8 @@ func _on_paddle_hit(area: Area2D) -> void:
 			_end_game("CPU Wins!", "B")
 
 func _end_game(message: String, winner: String) -> void:
+	print("_end_game called, return_scene = '", GameState.return_scene, "'")
+	win_label.text = message
 	win_label.text = message
 	win_label.visible = true
 	GameState.contest_winner = winner
