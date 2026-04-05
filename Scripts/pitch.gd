@@ -120,16 +120,13 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	camera.position = camera.position.lerp(camera_target, CAMERA_SPEED * delta)
 	if not kick_in_progress:
-		_check_role_rotation()
+		_check_role_rotation(delta)
 	_update_defender_arrow()
 
 # --- Private/internal helpers ---
 
 func _get_goal_rect(sq: ColorRect) -> Rect2:
-	return Rect2(
-		Vector2(sq.offset_left, sq.offset_top),
-		Vector2(sq.offset_right - sq.offset_left, sq.offset_bottom - sq.offset_top)
-	)
+	return Rect2(sq.position, sq.size)
 
 func _safe_resolve_position(pos: Vector2) -> Vector2:
 	var goal_a_rect: Rect2 = _get_goal_rect(goal_square_a)
@@ -165,9 +162,13 @@ func _set_goalie_bounds() -> void:
 func _set_forbidden_zones() -> void:
 	var goal_a_rect: Rect2 = _get_goal_rect(goal_square_a)
 	var goal_b_rect: Rect2 = _get_goal_rect(goal_square_b)
+	# Expand rects by unit half-size (30x50 unit, so 15x25) so units stop at their edge
+	var unit_half: Vector2 = Vector2(15.0, 25.0)
+	var expanded_a: Rect2 = goal_a_rect.grow_individual(unit_half.x, unit_half.y, unit_half.x, unit_half.y)
+	var expanded_b: Rect2 = goal_b_rect.grow_individual(unit_half.x, unit_half.y, unit_half.x, unit_half.y)
 	for unit in all_units_a + all_units_b:
 		if unit.role != "goalie":
-			unit.forbidden_rects = [goal_a_rect, goal_b_rect]
+			unit.forbidden_rects = [expanded_a, expanded_b]
 
 func _get_centre_unit(team: String) -> Node2D:
 	var arr: Array = all_units_a if team == "A" else all_units_b
@@ -302,7 +303,10 @@ func _update_attack_targets() -> void:
 			goalie = u
 			break
 
-	runner.set_attack_role(runner.AttackRole.RUNNER, _clamp_to_pitch(ch_pos))
+	if runner.attack_role != runner.AttackRole.RUNNER:
+		runner.set_attack_role(runner.AttackRole.RUNNER, _clamp_to_pitch(ch_pos))
+	else:
+		runner.update_runner_target(_clamp_to_pitch(ch_pos))
 
 	var in_defensive_half: bool
 	if attacking_team == "A":
@@ -367,23 +371,24 @@ func _update_attack_targets() -> void:
 		prepper_target = prepper.position
 	prepper.set_attack_role(prepper.AttackRole.PREPPER, _clamp_to_pitch(prepper_target))
 
-func _check_role_rotation() -> void:
+func _check_role_rotation(delta: float) -> void:
 	if runner == null or prepper == null:
 		return
 
 	if rotation_cooldown > 0.0:
-		rotation_cooldown -= get_process_delta_time()
+		rotation_cooldown -= delta
 	if timeout_rotation_cooldown > 0.0:
-		timeout_rotation_cooldown -= get_process_delta_time()
+		timeout_rotation_cooldown -= delta
 
 	var ch_pos: Vector2 = crosshair.position
 	var runner_dist: float = runner.position.distance_to(ch_pos)
 	var prepper_dist: float = prepper.position.distance_to(ch_pos)
-	if prepper_dist < runner_dist and rotation_cooldown <= 0.0:
+
+	if prepper_dist < runner_dist and rotation_cooldown <= 0.0 and timeout_rotation_cooldown <= 0.0:
 		on_runner_rotation_needed(false)
 		return
 
-	attack_update_timer += get_process_delta_time()
+	attack_update_timer += delta
 	if attack_update_timer >= ATTACK_UPDATE_INTERVAL:
 		attack_update_timer = 0.0
 		_update_attack_targets()
@@ -406,31 +411,6 @@ func on_runner_rotation_needed(from_timeout: bool = false) -> void:
 			away_dir = Vector2(1.0, 0.0)
 		dragger.position += away_dir * 30.0
 	_update_attack_targets()
-
-func _assign_post_kick_attack_roles(kick_pos: Vector2) -> void:
-	var attacking_units: Array = all_units_a if attacking_team == "A" else all_units_b
-	var eligible: Array = attacking_units.filter(
-		func(u): return u != aiming_unit and u.role != "goalie"
-	)
-	if eligible.size() < 1:
-		return
-
-	eligible.sort_custom(func(a, b):
-		return a.position.distance_to(kick_pos) < b.position.distance_to(kick_pos)
-	)
-
-	var receiver: Node2D = eligible[0]
-	receiver.set_attack_role(receiver.AttackRole.RUNNER, kick_pos)
-
-	for i in range(1, eligible.size()):
-		var unit: Node2D = eligible[i]
-		var away_dir: Vector2 = (unit.position - kick_pos).normalized()
-		if away_dir == Vector2.ZERO:
-			away_dir = Vector2(1, 0)
-		var away_pos: Vector2 = unit.position + away_dir * 300.0
-		away_pos.x = clamp(away_pos.x, 50.0, PITCH_W - 50.0)
-		away_pos.y = clamp(away_pos.y, 50.0, PITCH_H - 50.0)
-		unit.set_attack_role(unit.AttackRole.DRAGGER, away_pos)
 
 func _update_goal_arrow() -> void:
 	var attacking_color: Color = Color.WHITE
@@ -459,7 +439,6 @@ func _update_goal_arrow() -> void:
 		arrow_right.add_theme_color_override("font_color", attacking_color)
 
 func _score_goal(team: String) -> void:
-	# Determine which player scored
 	var goal_text: String
 	if team == "A":
 		GameState.score_a += 1
@@ -468,10 +447,9 @@ func _score_goal(team: String) -> void:
 		GameState.score_b += 1
 		goal_text = "P2 GOAL!" if GameState.team_b_player == 1 else "TEAM B GOAL!"
 
-	# Show goal text with brief freeze
 	goal_label.text = goal_text
-	goal_label.add_theme_color_override("font_color",
-		aiming_unit.unit_color if aiming_unit != null else Color.WHITE)
+	var goal_color: Color = aiming_unit.unit_color if aiming_unit != null else Color.WHITE
+	goal_label.add_theme_color_override("font_color", goal_color)
 	goal_label.visible = true
 	get_tree().paused = true
 	goal_label.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -527,6 +505,7 @@ func _on_quit() -> void:
 func set_aiming_unit(unit: Node2D) -> void:
 	kick_in_progress = false
 	rotation_cooldown = 0.0
+	timeout_rotation_cooldown = 0.0
 	if aiming_unit != null:
 		aiming_unit.set_as_aiming(false)
 	aiming_unit = unit
@@ -579,6 +558,7 @@ func on_kick_launched(kick_pos: Vector2) -> void:
 			continue
 		if unit == marker_defender:
 			unit.start_mark_delay(MARK_DELAY)
+			continue
 		unit.set_attack_role(unit.AttackRole.RUNNER, kick_pos)
 
 	var attacking_units: Array = all_units_a if attacking_team == "A" else all_units_b
@@ -590,11 +570,8 @@ func on_kick_launched(kick_pos: Vector2) -> void:
 		eligible.sort_custom(func(a, b):
 			return a.position.distance_to(kick_pos) < b.position.distance_to(kick_pos)
 		)
-		var nearest: Node2D = eligible[0]
-		nearest.attack_role = nearest.AttackRole.RUNNER
-		nearest.attack_target = kick_pos
-		nearest.runner_reached = false
-		nearest.runner_timer = 0.0
+		runner = eligible[0]
+		runner.set_attack_role(runner.AttackRole.RUNNER, kick_pos)
 
 		for i in range(1, eligible.size()):
 			var unit: Node2D = eligible[i]
@@ -604,8 +581,7 @@ func on_kick_launched(kick_pos: Vector2) -> void:
 			var away_pos: Vector2 = unit.position + away_dir * 300.0
 			away_pos.x = clamp(away_pos.x, 50.0, PITCH_W - 50.0)
 			away_pos.y = clamp(away_pos.y, 50.0, PITCH_H - 50.0)
-			unit.attack_role = unit.AttackRole.DRAGGER
-			unit.attack_target = away_pos
+			unit.set_attack_role(unit.AttackRole.DRAGGER, away_pos)
 
 func _update_defender_arrow() -> void:
 	if human_defender == null:

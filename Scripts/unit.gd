@@ -56,14 +56,15 @@ func _physics_process(delta: float) -> void:
 		return
 	if is_aiming:
 		return
-	if mark_delay_timer > 0.0:
-		mark_delay_timer -= delta
-		return
 	if is_defending:
 		if human_defending:
 			_handle_human_defend(delta)
-		elif assigned_target != null:
-			_move_toward_target(delta)
+		else:
+			if mark_delay_timer > 0.0:
+				mark_delay_timer -= delta
+				return
+			if assigned_target != null:
+				_move_toward_target(delta)
 		return
 	if attack_role != AttackRole.NONE:
 		_handle_attack_movement(delta)
@@ -94,8 +95,6 @@ func _handle_runner(delta: float) -> void:
 			runner_timed_out = true
 			runner_reached_timer = RUNNER_REACHED_DELAY
 	else:
-		# Only reset if crosshair moved away AND we reached it normally
-		# Don't reset if we timed out — always fire the rotation
 		if not runner_timed_out and dist > RUNNER_REACH_DIST * 3.0:
 			runner_reached = false
 			runner_timer = 0.0
@@ -182,6 +181,7 @@ func set_as_aiming(value: bool) -> void:
 	is_defending = false
 	human_defending = false
 	attack_role = AttackRole.NONE
+	border.visible = false
 	if value:
 		color_rect.color = unit_color.lightened(0.3)
 	else:
@@ -202,6 +202,7 @@ func set_attack_role(new_role: AttackRole, target: Vector2) -> void:
 	attack_role = new_role
 	attack_target = target
 	is_defending = false
+	border.visible = false
 	runner_reached = false
 	runner_timed_out = false
 	runner_timer = 0.0
@@ -209,3 +210,7 @@ func set_attack_role(new_role: AttackRole, target: Vector2) -> void:
 
 func start_mark_delay(delay: float) -> void:
 	mark_delay_timer = delay
+
+func update_runner_target(target: Vector2) -> void:
+	# Update target without resetting timer — preserves timeout accumulation
+	attack_target = target
