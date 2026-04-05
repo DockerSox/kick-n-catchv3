@@ -6,7 +6,6 @@ extends Node2D
 @onready var win_label: Label = $SubViewportContainer/SubViewport/UI/WinLabel
 
 var game_over: bool = false
-
 @export var two_player: bool = true
 
 func _ready() -> void:
@@ -27,6 +26,22 @@ func _start_round() -> void:
 	paddle_right.start_position = Vector2(380.0, 640.0)
 	paddle_right.position = paddle_right.start_position
 	paddle_right.is_cpu = not two_player
+
+	# Assign controls based on which player controls which team
+	if GameState.p1_team == "A":
+		paddle_left.move_left_action = "p1_left"
+		paddle_left.move_right_action = "p1_right"
+		paddle_left.launch_action = "p1_launch"
+		paddle_right.move_left_action = "p2_left"
+		paddle_right.move_right_action = "p2_right"
+		paddle_right.launch_action = "p2_launch"
+	else:
+		paddle_left.move_left_action = "p2_left"
+		paddle_left.move_right_action = "p2_right"
+		paddle_left.launch_action = "p2_launch"
+		paddle_right.move_left_action = "p1_left"
+		paddle_right.move_right_action = "p1_right"
+		paddle_right.launch_action = "p1_launch"
 
 	await get_tree().create_timer(1.0).timeout
 	ball.launch()
@@ -67,18 +82,20 @@ func _end_game(message: String, winner: String) -> void:
 	if game_over:
 		return
 	game_over = true
+
 	paddle_left.state = paddle_left.State.WAITING
 	paddle_right.state = paddle_right.State.WAITING
 	paddle_left.velocity = Vector2.ZERO
 	paddle_right.velocity = Vector2.ZERO
 	ball.active = false
 	ball.velocity = Vector2.ZERO
+
 	win_label.text = message
 	win_label.visible = true
 	GameState.contest_winner = winner
+
 	if GameState.return_scene != "":
 		await get_tree().create_timer(2.0).timeout
 		GameState.go_to_scene(GameState.return_scene)
-		# Do NOT clear return_scene here — pitch.gd reads and clears it
 	else:
 		get_tree().paused = true

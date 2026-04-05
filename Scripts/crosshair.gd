@@ -1,15 +1,14 @@
 extends Node2D
 
 const CROSSHAIR_RADIUS: float = 50.0
-
-@export var RADIUS_INNER: float = 150.0
-@export var RADIUS_MIDDLE: float = 300.0
-@export var RADIUS_OUTER: float = 450.0
-@export var MOVE_SPEED: float = 300.0
-@export var COUNTDOWN_TIME: Dictionary = {
-	1: 1.5,
-	2: 2.5,
-	3: 4.0
+const RADIUS_INNER: float = 150.0
+const RADIUS_MIDDLE: float = 300.0
+const RADIUS_OUTER: float = 450.0
+const MOVE_SPEED: float = 300.0
+const COUNTDOWN_TIME: Dictionary = {
+	1: 0.8,
+	2: 1.5,
+	3: 2.5
 }
 
 var active: bool = false
@@ -63,16 +62,20 @@ func activate(unit: Node2D) -> void:
 	line_v.default_color = aiming_color
 	countdown_label.add_theme_color_override("font_color", Color.WHITE)
 
+	# Determine which player controls this team
 	var team: String = unit.team
-	var is_human: bool = (team == "A" and GameState.team_a_player == 1) or \
-						 (team == "B" and GameState.team_b_player == 1)
-	if is_human:
-		var prefix: String = "p1_aim" if team == "A" else "p2_aim"
-		aim_action_left = prefix + "_left"
-		aim_action_right = prefix + "_right"
-		aim_action_up = prefix + "_up"
-		aim_action_down = prefix + "_down"
-		kick_action = "p1_kick" if team == "A" else "p2_kick"
+	var player_prefix: String = ""
+	if GameState.p1_team == team:
+		player_prefix = "p1"
+	elif GameState.p2_team == team:
+		player_prefix = "p2"
+
+	if player_prefix != "":
+		aim_action_left = player_prefix + "_aim_left"
+		aim_action_right = player_prefix + "_aim_right"
+		aim_action_up = player_prefix + "_aim_up"
+		aim_action_down = player_prefix + "_aim_down"
+		kick_action = player_prefix + "_kick"
 
 func _physics_process(delta: float) -> void:
 	if not active:
@@ -130,7 +133,6 @@ func _start_countdown() -> void:
 	line_h.visible = false
 	line_v.visible = false
 	countdown_label.add_theme_color_override("font_color", Color.WHITE)
-	# Notify pitch that kick has been launched
 	if pitch != null and pitch.has_method("on_kick_launched"):
 		pitch.on_kick_launched(position)
 
@@ -162,17 +164,14 @@ func _resolve_kick() -> void:
 
 	var attacking: String = aiming_unit.team
 
-	# Check if only a goalie from one team is inside
 	var a_goalie_only: bool = units_a_inside.size() == 1 and units_a_inside[0].role == "goalie"
 	var b_goalie_only: bool = units_b_inside.size() == 1 and units_b_inside[0].role == "goalie"
 	var a_has_goalie: bool = units_a_inside.any(func(u): return u.role == "goalie")
 	var b_has_goalie: bool = units_b_inside.any(func(u): return u.role == "goalie")
 
-	# Remove goalies from inside arrays for standard resolution
 	var units_a_no_goalie: Array = units_a_inside.filter(func(u): return u.role != "goalie")
 	var units_b_no_goalie: Array = units_b_inside.filter(func(u): return u.role != "goalie")
 
-	# Goal: goalie only in crosshair (no other units)
 	if a_goalie_only and units_b_inside.size() == 0:
 		pitch.on_kick_resolved("A", position, true)
 		return
@@ -180,8 +179,6 @@ func _resolve_kick() -> void:
 		pitch.on_kick_resolved("B", position, true)
 		return
 
-	# Contest: goalie + other units, or mixed teams
-	# If goalie is in crosshair alongside other units, treat goalie as not present
 	if units_a_no_goalie.size() > 0 and units_b_no_goalie.size() == 0:
 		pitch.on_kick_resolved("A", position, false)
 	elif units_b_no_goalie.size() > 0 and units_a_no_goalie.size() == 0:
@@ -189,7 +186,6 @@ func _resolve_kick() -> void:
 	elif units_a_no_goalie.size() > 0 and units_b_no_goalie.size() > 0:
 		_trigger_contest(position)
 	elif a_has_goalie and units_b_no_goalie.size() > 0:
-		# Attacker mixed with defending goalie — contest
 		_trigger_contest(position)
 	elif b_has_goalie and units_a_no_goalie.size() > 0:
 		_trigger_contest(position)

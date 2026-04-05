@@ -213,6 +213,7 @@ func _assign_defenders() -> void:
 		var defending_direction: float = -1.0 if attacking_team == "A" else 1.0
 		marker_defender.position = aiming_unit.position + Vector2(defending_direction * 35.0, 0.0)
 		marker_defender.set_as_defender(aiming_unit, false, "", "", "", "", 40.0)
+		marker_defender.set_human_defender_highlight(false)
 
 	var remaining_defenders: Array = defending_units.filter(
 		func(u): return u != marker_defender and u.role != "goalie"
@@ -241,7 +242,11 @@ func _assign_defenders() -> void:
 		if give_human:
 			human_assigned = true
 			human_defender = defender
-			var prefix: String = "p2_aim" if attacking_team == "A" else "p1_aim"
+			var prefix: String = ""
+			if GameState.p1_team != attacking_team:
+				prefix = "p1_aim"
+			else:
+				prefix = "p2_aim"
 			defender.set_as_defender(nearest, true,
 				prefix + "_up", prefix + "_down",
 				prefix + "_left", prefix + "_right")
