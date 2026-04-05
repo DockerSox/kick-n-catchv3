@@ -4,6 +4,7 @@ func _ready() -> void:
 	$PlayButton.pressed.connect(_on_play)
 	$OptionsButton.pressed.connect(_on_options)
 	$ExitButton.pressed.connect(_on_exit)
+	$PlayButton.grab_focus()
 
 func _on_play() -> void:
 	GameState.go_to_scene("res://Scenes/team_select.tscn")

@@ -3,6 +3,7 @@ extends Control
 func _ready() -> void:
 	$StartButton.pressed.connect(_on_start)
 	$BackButton.pressed.connect(_on_back)
+	$StartButton.grab_focus()
 
 func _on_start() -> void:
 	GameState.team_a_player = 1 if $TeamAOption.selected == 0 else 0

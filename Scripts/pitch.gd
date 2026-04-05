@@ -489,6 +489,7 @@ func _end_match() -> void:
 func _on_pause() -> void:
 	get_tree().paused = true
 	pause_menu.visible = true
+	$UI/PauseMenu/ResumeButton.grab_focus()
 
 func _on_resume() -> void:
 	get_tree().paused = false
