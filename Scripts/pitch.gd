@@ -26,7 +26,12 @@ var dragger: Node2D = null
 var prepper: Node2D = null
 var rotation_cooldown: float = 0.0
 var attack_update_timer: float = 0.0
+var marker_defender: Node2D = null
+var timeout_rotation_cooldown: float = 0.0
 
+@export var MARK_DELAY: float = 0.5
+
+const TIMEOUT_ROTATION_COOLDOWN_TIME: float = 3.0
 const ROTATION_COOLDOWN_TIME: float = 2.0
 const ATTACK_UPDATE_INTERVAL: float = 0.5
 const CAMERA_SPEED: float = 3.0
@@ -199,7 +204,7 @@ func _assign_defenders() -> void:
 	var is_human_defending: bool = (attacking_team == "A" and GameState.team_b_player == 1) or \
 								   (attacking_team == "B" and GameState.team_a_player == 1)
 
-	var marker_defender: Node2D = null
+	marker_defender = null
 	var marker_dist: float = INF
 	for defender in defending_units:
 		if defender.role == "goalie":
@@ -297,7 +302,7 @@ func _update_attack_targets() -> void:
 			goalie = u
 			break
 
-	runner.set_attack_role(runner.AttackRole.RUNNER, ch_pos)
+	runner.set_attack_role(runner.AttackRole.RUNNER, _clamp_to_pitch(ch_pos))
 
 	var in_defensive_half: bool
 	if attacking_team == "A":
@@ -310,11 +315,14 @@ func _update_attack_targets() -> void:
 		if in_defensive_half:
 			dragger_target = (prepper.position + goalie.position) / 2.0
 		else:
-			var top_point: Vector2 = Vector2(goalie.position.x, 0.0)
-			dragger_target = (goalie.position + top_point) / 2.0
+			# Use a point just outside the goal square rather than directly above goalie
+			if attacking_team == "A":
+				dragger_target = (goalie.position + Vector2(250.0, 0.0)) / 2.0
+			else:
+				dragger_target = (goalie.position + Vector2(2150.0, 0.0)) / 2.0
 	else:
 		dragger_target = dragger.position
-	dragger.set_attack_role(dragger.AttackRole.DRAGGER, dragger_target)
+	dragger.set_attack_role(dragger.AttackRole.DRAGGER, _clamp_to_pitch(dragger_target))
 
 	var prepper_target: Vector2
 	if goalie != null:
@@ -350,10 +358,14 @@ func _update_attack_targets() -> void:
 				else:
 					prepper_target = prepper.position
 		else:
-			prepper_target = (goalie.position + Vector2(goalie.position.x, 900.0)) / 2.0
+			# Use a point just outside the goal square near the bottom edge
+			if attacking_team == "A":
+				prepper_target = Vector2(250.0, 750.0)
+			else:
+				prepper_target = Vector2(2150.0, 750.0)
 	else:
 		prepper_target = prepper.position
-	prepper.set_attack_role(prepper.AttackRole.PREPPER, prepper_target)
+	prepper.set_attack_role(prepper.AttackRole.PREPPER, _clamp_to_pitch(prepper_target))
 
 func _check_role_rotation() -> void:
 	if runner == null or prepper == null:
@@ -361,12 +373,14 @@ func _check_role_rotation() -> void:
 
 	if rotation_cooldown > 0.0:
 		rotation_cooldown -= get_process_delta_time()
+	if timeout_rotation_cooldown > 0.0:
+		timeout_rotation_cooldown -= get_process_delta_time()
 
 	var ch_pos: Vector2 = crosshair.position
 	var runner_dist: float = runner.position.distance_to(ch_pos)
 	var prepper_dist: float = prepper.position.distance_to(ch_pos)
 	if prepper_dist < runner_dist and rotation_cooldown <= 0.0:
-		on_runner_rotation_needed()
+		on_runner_rotation_needed(false)
 		return
 
 	attack_update_timer += get_process_delta_time()
@@ -374,7 +388,11 @@ func _check_role_rotation() -> void:
 		attack_update_timer = 0.0
 		_update_attack_targets()
 
-func on_runner_rotation_needed() -> void:
+func on_runner_rotation_needed(from_timeout: bool = false) -> void:
+	if from_timeout and timeout_rotation_cooldown > 0.0:
+		return
+	if from_timeout:
+		timeout_rotation_cooldown = TIMEOUT_ROTATION_COOLDOWN_TIME
 	rotation_cooldown = ROTATION_COOLDOWN_TIME
 	var old_runner: Node2D = runner
 	var old_dragger: Node2D = dragger
@@ -559,9 +577,10 @@ func on_kick_launched(kick_pos: Vector2) -> void:
 	for unit in defending_units:
 		if unit.role == "goalie":
 			continue
+		if unit == marker_defender:
+			unit.start_mark_delay(MARK_DELAY)
 		unit.set_attack_role(unit.AttackRole.RUNNER, kick_pos)
 
-	# Find nearest attacking unit to crosshair and make them runner
 	var attacking_units: Array = all_units_a if attacking_team == "A" else all_units_b
 	var eligible: Array = attacking_units.filter(
 		func(u): return u != aiming_unit and u.role != "goalie"
@@ -572,13 +591,11 @@ func on_kick_launched(kick_pos: Vector2) -> void:
 			return a.position.distance_to(kick_pos) < b.position.distance_to(kick_pos)
 		)
 		var nearest: Node2D = eligible[0]
-		# Override to runner without triggering rotation
 		nearest.attack_role = nearest.AttackRole.RUNNER
 		nearest.attack_target = kick_pos
 		nearest.runner_reached = false
 		nearest.runner_timer = 0.0
 
-		# Others move away from kick position
 		for i in range(1, eligible.size()):
 			var unit: Node2D = eligible[i]
 			var away_dir: Vector2 = (unit.position - kick_pos).normalized()
@@ -595,14 +612,12 @@ func _update_defender_arrow() -> void:
 		defender_arrow.visible = false
 		return
 
-	# Convert unit world position to screen position
-	var screen_pos: Vector2 = get_viewport().get_camera_2d().get_screen_center_position()
+	var screen_center: Vector2 = get_viewport().get_camera_2d().get_screen_center_position()
 	var viewport_size: Vector2 = get_viewport_rect().size
 	var half_size: Vector2 = viewport_size / 2.0
 
-	# Get unit position relative to camera centre
-	var unit_screen_x: float = (human_defender.position.x - screen_pos.x) * camera.zoom.x + half_size.x
-	var unit_screen_y: float = (human_defender.position.y - screen_pos.y) * camera.zoom.y + half_size.y
+	var unit_screen_x: float = (human_defender.position.x - screen_center.x) * camera.zoom.x + half_size.x
+	var unit_screen_y: float = (human_defender.position.y - screen_center.y) * camera.zoom.y + half_size.y
 
 	var on_screen: bool = unit_screen_x >= 0 and unit_screen_x <= viewport_size.x and \
 						  unit_screen_y >= 0 and unit_screen_y <= viewport_size.y
@@ -611,18 +626,58 @@ func _update_defender_arrow() -> void:
 		defender_arrow.visible = false
 		return
 
-	# Show arrow on the appropriate side
 	defender_arrow.visible = true
 	defender_arrow.add_theme_color_override("font_color", human_defender.unit_color)
 
-	# Clamp y to viewport bounds with padding
-	var arrow_y: float = clamp(unit_screen_y, 30.0, viewport_size.y - 30.0)
+	# Determine player label text
+	var player_label: String = "P1"
+	if GameState.p2_team != attacking_team:
+		player_label = "P2"
 
-	if unit_screen_x < 0:
-		# Off left side
-		defender_arrow.text = "◀"
+	# Determine which edge to show arrow on
+	# Check if unit is primarily off left/right or off top/bottom
+	var off_left: bool = unit_screen_x < 0
+	var off_right: bool = unit_screen_x > viewport_size.x
+	var off_top: bool = unit_screen_y < 0
+	var off_bottom: bool = unit_screen_y > viewport_size.y
+
+	if off_left and not off_top and not off_bottom:
+		defender_arrow.text = "◀ " + player_label
+		var arrow_y: float = clamp(unit_screen_y, 30.0, viewport_size.y - 30.0)
 		defender_arrow.position = Vector2(10.0, arrow_y - 20.0)
+	elif off_right and not off_top and not off_bottom:
+		defender_arrow.text = player_label + " ▶"
+		var arrow_y: float = clamp(unit_screen_y, 30.0, viewport_size.y - 30.0)
+		defender_arrow.position = Vector2(viewport_size.x - 80.0, arrow_y - 20.0)
+	elif off_top:
+		defender_arrow.text = "▲ " + player_label
+		var arrow_x: float = clamp(unit_screen_x, 30.0, viewport_size.x - 80.0)
+		defender_arrow.position = Vector2(arrow_x, 10.0)
+	elif off_bottom:
+		defender_arrow.text = "▼ " + player_label
+		var arrow_x: float = clamp(unit_screen_x, 30.0, viewport_size.x - 80.0)
+		defender_arrow.position = Vector2(arrow_x, viewport_size.y - 40.0)
 	else:
-		# Off right side
-		defender_arrow.text = "▶"
-		defender_arrow.position = Vector2(viewport_size.x - 40.0, arrow_y - 20.0)
+		# Corner case — unit is off in a diagonal, pick dominant axis
+		var x_dist: float = min(abs(unit_screen_x), abs(unit_screen_x - viewport_size.x))
+		var y_dist: float = min(abs(unit_screen_y), abs(unit_screen_y - viewport_size.y))
+		if x_dist < y_dist:
+			if off_left:
+				defender_arrow.text = "◀ " + player_label
+				defender_arrow.position = Vector2(10.0, clamp(unit_screen_y, 30.0, viewport_size.y - 30.0) - 20.0)
+			else:
+				defender_arrow.text = player_label + " ▶"
+				defender_arrow.position = Vector2(viewport_size.x - 80.0, clamp(unit_screen_y, 30.0, viewport_size.y - 30.0) - 20.0)
+		else:
+			if off_top:
+				defender_arrow.text = "▲ " + player_label
+				defender_arrow.position = Vector2(clamp(unit_screen_x, 30.0, viewport_size.x - 80.0), 10.0)
+			else:
+				defender_arrow.text = "▼ " + player_label
+				defender_arrow.position = Vector2(clamp(unit_screen_x, 30.0, viewport_size.x - 80.0), viewport_size.y - 40.0)
+
+func _clamp_to_pitch(pos: Vector2) -> Vector2:
+	return Vector2(
+		clamp(pos.x, 10.0, PITCH_W - 10.0),
+		clamp(pos.y, 10.0, PITCH_H - 10.0)
+	)

@@ -1,11 +1,13 @@
 extends Node2D
 
+
+@export var RADIUS_INNER: float = 150.0
+@export var RADIUS_MIDDLE: float = 300.0
+@export var RADIUS_OUTER: float = 450.0
+@export var MOVE_SPEED: float = 300.0
+
 const CROSSHAIR_RADIUS: float = 50.0
-const RADIUS_INNER: float = 150.0
-const RADIUS_MIDDLE: float = 300.0
-const RADIUS_OUTER: float = 450.0
-const MOVE_SPEED: float = 300.0
-const COUNTDOWN_TIME: Dictionary = {
+@export var COUNTDOWN_TIME: Dictionary = {
 	1: 0.8,
 	2: 1.5,
 	3: 2.5

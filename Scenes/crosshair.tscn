@@ -7,6 +7,14 @@ radius = 20.0
 
 [node name="Crosshair" type="Node2D" unique_id=402353958]
 script = ExtResource("1_aqujx")
+RADIUS_INNER = 200.0
+RADIUS_OUTER = 400.0
+MOVE_SPEED = 350.0
+COUNTDOWN_TIME = {
+1: 0.7,
+2: 1.4,
+3: 2.1
+}
 
 [node name="Circle" type="Line2D" parent="." unique_id=1071222427]
 width = 4.0

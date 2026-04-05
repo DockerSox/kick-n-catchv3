@@ -1,5 +1,7 @@
 extends Area2D
 
+enum AttackRole { NONE, RUNNER, DRAGGER, PREPPER }
+
 @export var team: String = "A"
 @export var role: String = "field"
 @export var unit_color: Color = Color.WHITE
@@ -13,26 +15,32 @@ var is_defending: bool = false
 var human_defending: bool = false
 var stop_distance: float = 20.0
 var forbidden_rects: Array = []
-
-enum AttackRole { NONE, RUNNER, DRAGGER, PREPPER }
 var attack_role: AttackRole = AttackRole.NONE
 var attack_target: Vector2 = Vector2.ZERO
 var runner_timer: float = 0.0
 var runner_reached: bool = false
 var runner_reached_timer: float = 0.0
-
-const RUNNER_TIMEOUT: float = 3.0
-const RUNNER_REACHED_DELAY: float = 0.4
-const RUNNER_REACH_DIST: float = 40.0
-const ATTACK_MOVE_SPEED: float = 160.0
-
 var defend_up: String = ""
 var defend_down: String = ""
 var defend_left: String = ""
 var defend_right: String = ""
+var runner_timed_out: bool = false
 
-const MOVE_SPEED: float = 150.0
-const DEFEND_SPEED: float = 180.0
+#time before unit standing mark can move after kick
+var mark_delay_timer: float = 0.0
+
+const RUNNER_TIMEOUT: float = 2.5
+const RUNNER_REACHED_DELAY: float = 0.4
+const RUNNER_REACH_DIST: float = 40.0
+
+#the speed at which non-aiming attacking units move
+const ATTACK_MOVE_SPEED: float = 135.0
+
+#the speed at which AI-controlled defending units move
+const MOVE_SPEED: float = 135.0
+
+#the speed at which the human-controlled defending unit moves
+const DEFEND_SPEED: float = 150.0
 
 @onready var color_rect: ColorRect = $ColorRect
 @onready var name_label: Label = $NameLabel
@@ -47,6 +55,9 @@ func _physics_process(delta: float) -> void:
 	if role == "goalie":
 		return
 	if is_aiming:
+		return
+	if mark_delay_timer > 0.0:
+		mark_delay_timer -= delta
 		return
 	if is_defending:
 		if human_defending:
@@ -76,13 +87,16 @@ func _handle_runner(delta: float) -> void:
 		runner_timer += delta
 		if dist < RUNNER_REACH_DIST:
 			runner_reached = true
+			runner_timed_out = false
 			runner_reached_timer = 0.0
 		elif runner_timer >= RUNNER_TIMEOUT:
 			runner_reached = true
+			runner_timed_out = true
 			runner_reached_timer = RUNNER_REACHED_DELAY
 	else:
-		# If crosshair has moved significantly, reset runner state
-		if dist > RUNNER_REACH_DIST * 3.0:
+		# Only reset if crosshair moved away AND we reached it normally
+		# Don't reset if we timed out — always fire the rotation
+		if not runner_timed_out and dist > RUNNER_REACH_DIST * 3.0:
 			runner_reached = false
 			runner_timer = 0.0
 			return
@@ -90,8 +104,9 @@ func _handle_runner(delta: float) -> void:
 		if runner_reached_timer >= RUNNER_REACHED_DELAY:
 			var pitch: Node = get_parent().get_parent()
 			if pitch.has_method("on_runner_rotation_needed") and not pitch.kick_in_progress:
-				pitch.on_runner_rotation_needed()
+				pitch.on_runner_rotation_needed(true)
 			runner_reached = false
+			runner_timed_out = false
 			runner_timer = 0.0
 
 func _move_toward_attack_target(delta: float) -> void:
@@ -102,6 +117,8 @@ func _move_toward_attack_target(delta: float) -> void:
 		return
 	var dir: Vector2 = (attack_target - position).normalized()
 	var new_pos: Vector2 = position + dir * ATTACK_MOVE_SPEED * delta
+	new_pos.x = clamp(new_pos.x, 10.0, 2390.0)
+	new_pos.y = clamp(new_pos.y, 10.0, 890.0)
 	new_pos = _avoid_forbidden(new_pos)
 	position = new_pos
 
@@ -186,5 +203,9 @@ func set_attack_role(new_role: AttackRole, target: Vector2) -> void:
 	attack_target = target
 	is_defending = false
 	runner_reached = false
+	runner_timed_out = false
 	runner_timer = 0.0
 	runner_reached_timer = 0.0
+
+func start_mark_delay(delay: float) -> void:
+	mark_delay_timer = delay
