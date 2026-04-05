@@ -10,7 +10,7 @@ func _ready() -> void:
 	area_entered.connect(_on_area_entered)
 
 func _on_area_entered(area: Area2D) -> void:
-	print("area entered: ", area.name, " active=", active)
+	#print("area entered: ", area.name, " active=", active)
 	if active:
 		paddle_hit.emit(area)
 

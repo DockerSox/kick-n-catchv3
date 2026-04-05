@@ -162,11 +162,36 @@ func _resolve_kick() -> void:
 
 	var attacking: String = aiming_unit.team
 
-	if units_a_inside.size() > 0 and units_b_inside.size() == 0:
-		pitch.on_kick_resolved("A", position)
-	elif units_b_inside.size() > 0 and units_a_inside.size() == 0:
-		pitch.on_kick_resolved("B", position)
-	elif units_a_inside.size() > 0 and units_b_inside.size() > 0:
+	# Check if only a goalie from one team is inside
+	var a_goalie_only: bool = units_a_inside.size() == 1 and units_a_inside[0].role == "goalie"
+	var b_goalie_only: bool = units_b_inside.size() == 1 and units_b_inside[0].role == "goalie"
+	var a_has_goalie: bool = units_a_inside.any(func(u): return u.role == "goalie")
+	var b_has_goalie: bool = units_b_inside.any(func(u): return u.role == "goalie")
+
+	# Remove goalies from inside arrays for standard resolution
+	var units_a_no_goalie: Array = units_a_inside.filter(func(u): return u.role != "goalie")
+	var units_b_no_goalie: Array = units_b_inside.filter(func(u): return u.role != "goalie")
+
+	# Goal: goalie only in crosshair (no other units)
+	if a_goalie_only and units_b_inside.size() == 0:
+		pitch.on_kick_resolved("A", position, true)
+		return
+	if b_goalie_only and units_a_inside.size() == 0:
+		pitch.on_kick_resolved("B", position, true)
+		return
+
+	# Contest: goalie + other units, or mixed teams
+	# If goalie is in crosshair alongside other units, treat goalie as not present
+	if units_a_no_goalie.size() > 0 and units_b_no_goalie.size() == 0:
+		pitch.on_kick_resolved("A", position, false)
+	elif units_b_no_goalie.size() > 0 and units_a_no_goalie.size() == 0:
+		pitch.on_kick_resolved("B", position, false)
+	elif units_a_no_goalie.size() > 0 and units_b_no_goalie.size() > 0:
+		_trigger_contest(position)
+	elif a_has_goalie and units_b_no_goalie.size() > 0:
+		# Attacker mixed with defending goalie — contest
+		_trigger_contest(position)
+	elif b_has_goalie and units_a_no_goalie.size() > 0:
 		_trigger_contest(position)
 	else:
 		_no_unit_resolution(attacking, position)

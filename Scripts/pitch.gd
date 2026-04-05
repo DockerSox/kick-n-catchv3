@@ -24,7 +24,9 @@ var camera_target: Vector2 = Vector2.ZERO
 var runner: Node2D = null
 var dragger: Node2D = null
 var prepper: Node2D = null
+var rotation_cooldown: float = 0.0
 
+const ROTATION_COOLDOWN_TIME: float = 2.0
 var attack_update_timer: float = 0.0
 const ATTACK_UPDATE_INTERVAL: float = 0.5
 const CAMERA_SPEED: float = 3.0
@@ -33,14 +35,14 @@ const PITCH_H: float = 900.0
 
 const POSITIONS_A: Dictionary = {
 	"centre":  Vector2(1150, 450),
-	"goalie":  Vector2(150, 450),
+	"goalie":  Vector2(100, 450),    # centre of left goal square
 	"winger":  Vector2(800, 150),
 	"defence": Vector2(900, 450),
 	"attack":  Vector2(600, 450)
 }
 const POSITIONS_B: Dictionary = {
 	"centre":  Vector2(1250, 450),
-	"goalie":  Vector2(2250, 450),
+	"goalie":  Vector2(2300, 450),   # centre of right goal square
 	"winger":  Vector2(1600, 750),
 	"defence": Vector2(1500, 450),
 	"attack":  Vector2(1800, 450)
@@ -351,16 +353,36 @@ func _update_attack_targets() -> void:
 func _check_role_rotation() -> void:
 	if runner == null or prepper == null:
 		return
+
+	if rotation_cooldown > 0.0:
+		rotation_cooldown -= get_process_delta_time()
+
 	var ch_pos: Vector2 = crosshair.position
 	var runner_dist: float = runner.position.distance_to(ch_pos)
 	var prepper_dist: float = prepper.position.distance_to(ch_pos)
-	if prepper_dist < runner_dist:
+	if prepper_dist < runner_dist and rotation_cooldown <= 0.0:
 		on_runner_rotation_needed()
 		return
+
 	attack_update_timer += get_process_delta_time()
 	if attack_update_timer >= ATTACK_UPDATE_INTERVAL:
 		attack_update_timer = 0.0
 		_update_attack_targets()
+
+func on_runner_rotation_needed() -> void:
+	rotation_cooldown = ROTATION_COOLDOWN_TIME
+	var old_runner: Node2D = runner
+	var old_dragger: Node2D = dragger
+	var old_prepper: Node2D = prepper
+	runner = old_prepper
+	dragger = old_runner
+	prepper = old_dragger
+	if dragger != null:
+		var away_dir: Vector2 = (dragger.position - crosshair.position).normalized()
+		if away_dir == Vector2.ZERO:
+			away_dir = Vector2(1.0, 0.0)
+		dragger.position += away_dir * 30.0
+	_update_attack_targets()
 
 func _assign_post_kick_attack_roles(kick_pos: Vector2) -> void:
 	var attacking_units: Array = all_units_a if attacking_team == "A" else all_units_b
@@ -479,6 +501,7 @@ func _on_quit() -> void:
 # --- Public functions called by other nodes ---
 
 func set_aiming_unit(unit: Node2D) -> void:
+	rotation_cooldown = 0.0
 	if aiming_unit != null:
 		aiming_unit.set_as_aiming(false)
 	aiming_unit = unit
@@ -500,19 +523,14 @@ func set_aiming_unit(unit: Node2D) -> void:
 func update_score() -> void:
 	score_label.text = str(GameState.score_a) + " - " + str(GameState.score_b)
 
-func on_kick_resolved(winning_team: String, resolve_position: Vector2) -> void:
+func on_kick_resolved(winning_team: String, resolve_position: Vector2, is_goal: bool = false) -> void:
 	attacking_team = winning_team
 	GameState.attacking_team = winning_team
 
 	var safe_pos: Vector2 = _safe_resolve_position(resolve_position)
-	var goal_a_rect: Rect2 = _get_goal_rect(goal_square_a)
-	var goal_b_rect: Rect2 = _get_goal_rect(goal_square_b)
 
-	if winning_team == "A" and goal_a_rect.has_point(resolve_position):
-		_score_goal("A")
-		return
-	elif winning_team == "B" and goal_b_rect.has_point(resolve_position):
-		_score_goal("B")
+	if is_goal:
+		_score_goal(winning_team)
 		return
 
 	var winning_units: Array = all_units_a if winning_team == "A" else all_units_b
@@ -528,27 +546,41 @@ func on_kick_resolved(winning_team: String, resolve_position: Vector2) -> void:
 	set_aiming_unit(nearest)
 
 func on_kick_launched(kick_pos: Vector2) -> void:
+	# All defenders move toward the kick position
 	var defending_units: Array = all_units_b if attacking_team == "A" else all_units_a
 	for unit in defending_units:
 		if unit.role == "goalie":
 			continue
 		unit.set_attack_role(unit.AttackRole.RUNNER, kick_pos)
-	_assign_post_kick_attack_roles(kick_pos)
 
-func on_runner_rotation_needed() -> void:
-	var old_runner: Node2D = runner
-	var old_dragger: Node2D = dragger
-	var old_prepper: Node2D = prepper
-	runner = old_prepper
-	dragger = old_runner
-	prepper = old_dragger
-	# Nudge new dragger away from crosshair immediately
-	if dragger != null:
-		var away_dir: Vector2 = (dragger.position - crosshair.position).normalized()
-		if away_dir == Vector2.ZERO:
-			away_dir = Vector2(1.0, 0.0)
-		dragger.position += away_dir * 30.0
-	_update_attack_targets()
+	# Find nearest attacking unit to crosshair and make them runner
+	var attacking_units: Array = all_units_a if attacking_team == "A" else all_units_b
+	var eligible: Array = attacking_units.filter(
+		func(u): return u != aiming_unit and u.role != "goalie"
+	)
+
+	if eligible.size() > 0:
+		eligible.sort_custom(func(a, b):
+			return a.position.distance_to(kick_pos) < b.position.distance_to(kick_pos)
+		)
+		var nearest: Node2D = eligible[0]
+		# Override to runner without triggering rotation
+		nearest.attack_role = nearest.AttackRole.RUNNER
+		nearest.attack_target = kick_pos
+		nearest.runner_reached = false
+		nearest.runner_timer = 0.0
+
+		# Others move away from kick position
+		for i in range(1, eligible.size()):
+			var unit: Node2D = eligible[i]
+			var away_dir: Vector2 = (unit.position - kick_pos).normalized()
+			if away_dir == Vector2.ZERO:
+				away_dir = Vector2(1, 0)
+			var away_pos: Vector2 = unit.position + away_dir * 300.0
+			away_pos.x = clamp(away_pos.x, 50.0, PITCH_W - 50.0)
+			away_pos.y = clamp(away_pos.y, 50.0, PITCH_H - 50.0)
+			unit.attack_role = unit.AttackRole.DRAGGER
+			unit.attack_target = away_pos
 
 func _update_defender_arrow() -> void:
 	if human_defender == null:

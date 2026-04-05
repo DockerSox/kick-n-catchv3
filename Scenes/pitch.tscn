@@ -19,16 +19,15 @@ color = Color(0.1764706, 0.3529412, 0.105882354, 1)
 [node name="PitchLines" type="Node2D" parent="." unique_id=517201835]
 
 [node name="GoalSquareA" type="ColorRect" parent="." unique_id=376480223]
-offset_left = 50.0
 offset_top = 300.0
-offset_right = 250.0
+offset_right = 200.0
 offset_bottom = 600.0
 color = Color(0.53333336, 0.53333336, 1, 0.26666668)
 
 [node name="GoalSquareB" type="ColorRect" parent="." unique_id=1538904152]
-offset_left = 2150.0
+offset_left = 2200.0
 offset_top = 300.0
-offset_right = 2350.0
+offset_right = 2400.0
 offset_bottom = 600.0
 color = Color(1, 0.53333336, 0.53333336, 0.26666668)
 
