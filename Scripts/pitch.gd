@@ -20,19 +20,18 @@ var aiming_unit: Node2D = null
 var all_units_a: Array = []
 var all_units_b: Array = []
 var camera_target: Vector2 = Vector2.ZERO
-
+var kick_in_progress: bool = false
 var runner: Node2D = null
 var dragger: Node2D = null
 var prepper: Node2D = null
 var rotation_cooldown: float = 0.0
+var attack_update_timer: float = 0.0
 
 const ROTATION_COOLDOWN_TIME: float = 2.0
-var attack_update_timer: float = 0.0
 const ATTACK_UPDATE_INTERVAL: float = 0.5
 const CAMERA_SPEED: float = 3.0
 const PITCH_W: float = 2400.0
 const PITCH_H: float = 900.0
-
 const POSITIONS_A: Dictionary = {
 	"centre":  Vector2(1150, 450),
 	"goalie":  Vector2(100, 450),    # centre of left goal square
@@ -115,7 +114,8 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	camera.position = camera.position.lerp(camera_target, CAMERA_SPEED * delta)
-	_check_role_rotation()
+	if not kick_in_progress:
+		_check_role_rotation()
 	_update_defender_arrow()
 
 # --- Private/internal helpers ---
@@ -501,6 +501,7 @@ func _on_quit() -> void:
 # --- Public functions called by other nodes ---
 
 func set_aiming_unit(unit: Node2D) -> void:
+	kick_in_progress = false
 	rotation_cooldown = 0.0
 	if aiming_unit != null:
 		aiming_unit.set_as_aiming(false)
@@ -524,6 +525,7 @@ func update_score() -> void:
 	score_label.text = str(GameState.score_a) + " - " + str(GameState.score_b)
 
 func on_kick_resolved(winning_team: String, resolve_position: Vector2, is_goal: bool = false) -> void:
+	kick_in_progress = false
 	attacking_team = winning_team
 	GameState.attacking_team = winning_team
 
@@ -546,7 +548,7 @@ func on_kick_resolved(winning_team: String, resolve_position: Vector2, is_goal: 
 	set_aiming_unit(nearest)
 
 func on_kick_launched(kick_pos: Vector2) -> void:
-	# All defenders move toward the kick position
+	kick_in_progress = true
 	var defending_units: Array = all_units_b if attacking_team == "A" else all_units_a
 	for unit in defending_units:
 		if unit.role == "goalie":

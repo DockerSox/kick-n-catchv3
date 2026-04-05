@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dxqlpjvgx1d28" path="res://Scripts/pitch.gd" id="1_2dmjp"]
 [ext_resource type="PackedScene" uid="uid://ccjof2rady12g" path="res://Scenes/unit.tscn" id="1_p7quv"]
+[ext_resource type="Texture2D" uid="uid://tqecgbowq0ck" path="res://Assets/without goals.png" id="2_2k2j8"]
 [ext_resource type="PackedScene" uid="uid://dy2hpnvp2c4tu" path="res://Scenes/crosshair.tscn" id="3_qkjbr"]
 
 [node name="Pitch" type="Node2D" unique_id=1118211447]
@@ -17,6 +18,10 @@ offset_bottom = 900.0
 color = Color(0.1764706, 0.3529412, 0.105882354, 1)
 
 [node name="PitchLines" type="Node2D" parent="." unique_id=517201835]
+
+[node name="Sprite2D" type="Sprite2D" parent="PitchLines" unique_id=516160986]
+position = Vector2(1200, 450)
+texture = ExtResource("2_2k2j8")
 
 [node name="GoalSquareA" type="ColorRect" parent="." unique_id=376480223]
 offset_top = 300.0

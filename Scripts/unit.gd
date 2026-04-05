@@ -89,7 +89,7 @@ func _handle_runner(delta: float) -> void:
 		runner_reached_timer += delta
 		if runner_reached_timer >= RUNNER_REACHED_DELAY:
 			var pitch: Node = get_parent().get_parent()
-			if pitch.has_method("on_runner_rotation_needed"):
+			if pitch.has_method("on_runner_rotation_needed") and not pitch.kick_in_progress:
 				pitch.on_runner_rotation_needed()
 			runner_reached = false
 			runner_timer = 0.0
