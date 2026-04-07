@@ -38,18 +38,18 @@ const CAMERA_SPEED: float = 3.0
 const PITCH_W: float = 2400.0
 const PITCH_H: float = 900.0
 const POSITIONS_A: Dictionary = {
-	"centre":  Vector2(1150, 450),
-	"goalie":  Vector2(100, 450),    # centre of left goal square
-	"winger":  Vector2(800, 150),
-	"defence": Vector2(900, 450),
-	"attack":  Vector2(600, 450)
+	"centre":  Vector2(1250, 450),
+	"goalie":  Vector2(100, 450),
+	"winger":  Vector2(1200, 150),
+	"defence": Vector2(1850, 450),
+	"attack":  Vector2(650, 450),
 }
 const POSITIONS_B: Dictionary = {
-	"centre":  Vector2(1250, 450),
-	"goalie":  Vector2(2300, 450),   # centre of right goal square
-	"winger":  Vector2(1600, 750),
-	"defence": Vector2(1500, 450),
-	"attack":  Vector2(1800, 450)
+	"centre":  Vector2(1150, 450),   # centre of pitch
+	"goalie":  Vector2(2300, 450),   # in goal square
+	"winger":  Vector2(1200, 750),   # centre-half-back, wide
+	"defence": Vector2(550, 450),   # centre-half-back, central
+	"attack":  Vector2(1750, 450),   # centre-half-forward, wide
 }
 
 func _ready() -> void:
@@ -121,6 +121,8 @@ func _process(delta: float) -> void:
 	camera.position = camera.position.lerp(camera_target, CAMERA_SPEED * delta)
 	if not kick_in_progress:
 		_check_role_rotation(delta)
+	if Input.is_action_just_pressed("Pause"):
+		_on_pause()
 	_update_defender_arrow()
 
 # --- Private/internal helpers ---
@@ -478,7 +480,9 @@ func _reset_positions() -> void:
 
 func _end_match() -> void:
 	var winner_text: String = "Team A Wins!" if GameState.score_a >= 2 else "Team B Wins!"
+	var winner_text_color: String = "#6a0dad" if GameState.score_a >= 2 else "#cc44cc"
 	match_end_label.text = winner_text
+	match_end_label.add_theme_color_override("font_color", Color(winner_text_color))
 	match_end_label.visible = true
 	match_end_label.process_mode = Node.PROCESS_MODE_ALWAYS
 	await get_tree().create_timer(3.0).timeout

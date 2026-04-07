@@ -38,48 +38,58 @@ color = Color(1, 0.53333336, 0.53333336, 0.26666668)
 [node name="UnitsA" type="Node2D" parent="." unique_id=317694147]
 
 [node name="UnitA_Centre" parent="UnitsA" unique_id=253754495 instance=ExtResource("1_p7quv")]
+position = Vector2(1250, 450)
 role = "centre"
 unit_color = Color(0.41568628, 0.050980393, 0.6784314, 1)
 
 [node name="UnitA_Goalie" parent="UnitsA" unique_id=437234748 instance=ExtResource("1_p7quv")]
+position = Vector2(100, 450)
 role = "goalie"
 unit_color = Color(0.41568628, 0.050980393, 0.6784314, 1)
 
 [node name="UnitA_Winger" parent="UnitsA" unique_id=1537416200 instance=ExtResource("1_p7quv")]
+position = Vector2(1200, 150)
 role = "winger"
 unit_color = Color(0.41568628, 0.050980393, 0.6784314, 1)
 
 [node name="UnitA_Attack" parent="UnitsA" unique_id=2100682804 instance=ExtResource("1_p7quv")]
+position = Vector2(650, 450)
 role = "attack"
 unit_color = Color(0.41568628, 0.050980393, 0.6784314, 1)
 
 [node name="UnitA_Defence" parent="UnitsA" unique_id=942171356 instance=ExtResource("1_p7quv")]
+position = Vector2(1850, 450)
 role = "defence"
 unit_color = Color(0.41568628, 0.050980393, 0.6784314, 1)
 
 [node name="UnitsB" type="Node2D" parent="." unique_id=556849350]
 
 [node name="UnitB_Centre" parent="UnitsB" unique_id=1897257026 instance=ExtResource("1_p7quv")]
+position = Vector2(1150, 450)
 team = "B"
 role = "centre"
 unit_color = Color(0.8, 0.26666668, 0.8, 1)
 
 [node name="UnitB_Goalie" parent="UnitsB" unique_id=1294043275 instance=ExtResource("1_p7quv")]
+position = Vector2(2300, 450)
 team = "B"
 role = "goalie"
 unit_color = Color(0.8, 0.26666668, 0.8, 1)
 
 [node name="UnitB_Winger" parent="UnitsB" unique_id=585997653 instance=ExtResource("1_p7quv")]
+position = Vector2(1200, 750)
 team = "B"
 role = "winger"
 unit_color = Color(0.8, 0.26666668, 0.8, 1)
 
 [node name="UnitB_Attack" parent="UnitsB" unique_id=1892459557 instance=ExtResource("1_p7quv")]
+position = Vector2(1750, 450)
 team = "B"
 role = "attack"
 unit_color = Color(0.8, 0.26666668, 0.8, 1)
 
 [node name="UnitB_Defence" parent="UnitsB" unique_id=11078722 instance=ExtResource("1_p7quv")]
+position = Vector2(550, 450)
 team = "B"
 role = "defence"
 unit_color = Color(0.8, 0.26666668, 0.8, 1)
