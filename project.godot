@@ -18,7 +18,6 @@ config/icon="res://icon.svg"
 [autoload]
 
 GameState="*uid://bbxapcos8s0fs"
-InputManager="*uid://govcivlwmh1m"
 
 [display]
 

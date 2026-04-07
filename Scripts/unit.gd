@@ -13,7 +13,6 @@ var bounds_rect: Rect2 = Rect2()
 var constrained: bool = false
 var is_defending: bool = false
 var human_defending: bool = false
-var human_attacking: bool = false
 var stop_distance: float = 20.0
 var forbidden_rects: Array = []
 var attack_role: AttackRole = AttackRole.NONE
@@ -21,26 +20,26 @@ var attack_target: Vector2 = Vector2.ZERO
 var runner_timer: float = 0.0
 var runner_reached: bool = false
 var runner_reached_timer: float = 0.0
-var runner_timed_out: bool = false
-var mark_delay_timer: float = 0.0
-
-# Defend input actions (human defender)
 var defend_up: String = ""
 var defend_down: String = ""
 var defend_left: String = ""
 var defend_right: String = ""
+var runner_timed_out: bool = false
 
-# Attack input actions (human attacker)
-var attack_up: String = ""
-var attack_down: String = ""
-var attack_left: String = ""
-var attack_right: String = ""
+#time before unit standing mark can move after kick
+var mark_delay_timer: float = 0.0
 
 const RUNNER_TIMEOUT: float = 2.5
 const RUNNER_REACHED_DELAY: float = 0.4
 const RUNNER_REACH_DIST: float = 40.0
+
+#the speed at which non-aiming attacking units move
 const ATTACK_MOVE_SPEED: float = 135.0
+
+#the speed at which AI-controlled defending units move
 const MOVE_SPEED: float = 135.0
+
+#the speed at which the human-controlled defending unit moves
 const DEFEND_SPEED: float = 150.0
 
 @onready var color_rect: ColorRect = $ColorRect
@@ -56,7 +55,7 @@ func _physics_process(delta: float) -> void:
 	if role == "goalie":
 		return
 	if is_aiming:
-		return  # aiming unit is always immobile
+		return
 	if mark_delay_timer > 0.0:
 		mark_delay_timer -= delta
 		return
@@ -66,80 +65,11 @@ func _physics_process(delta: float) -> void:
 		elif assigned_target != null:
 			_move_toward_target(delta)
 		return
-	if human_attacking:
-		_handle_human_attack(delta)
-		return
 	if attack_role != AttackRole.NONE:
 		_handle_attack_movement(delta)
 
-# ---------------------------------------------------------------------------
-# Public setters
-# ---------------------------------------------------------------------------
-
-func set_as_aiming(value: bool) -> void:
-	is_aiming = value
-	is_defending = false
-	human_defending = false
-	human_attacking = false
-	attack_role = AttackRole.NONE
-	border.visible = false
-	if value:
-		color_rect.color = unit_color.lightened(0.3)
-	else:
-		color_rect.color = unit_color
-
-func set_as_defender(target: Node2D, is_human: bool, up: String = "", down: String = "", left: String = "", right: String = "", stop_dist: float = 20.0) -> void:
-	is_defending = true
-	human_attacking = false
-	attack_role = AttackRole.NONE
-	assigned_target = target
-	human_defending = is_human
-	defend_up = up
-	defend_down = down
-	defend_left = left
-	defend_right = right
-	stop_distance = stop_dist
-
-func set_as_human_attacker(up: String, down: String, left: String, right: String) -> void:
-	human_attacking = true
-	attack_role = AttackRole.NONE
-	is_defending = false
-	border.visible = false
-	attack_up = up
-	attack_down = down
-	attack_left = left
-	attack_right = right
-
-func clear_human_attack() -> void:
-	human_attacking = false
-	attack_up = ""
-	attack_down = ""
-	attack_left = ""
-	attack_right = ""
-
-func set_attack_role(new_role: AttackRole, target: Vector2) -> void:
-	attack_role = new_role
-	attack_target = target
-	is_defending = false
-	human_attacking = false
-	border.visible = false
-	runner_reached = false
-	runner_timed_out = false
-	runner_timer = 0.0
-	runner_reached_timer = 0.0
-
 func set_human_defender_highlight(value: bool) -> void:
 	border.visible = value
-
-func start_mark_delay(delay: float) -> void:
-	mark_delay_timer = delay
-
-func update_runner_target(target: Vector2) -> void:
-	attack_target = target
-
-# ---------------------------------------------------------------------------
-# Movement handlers
-# ---------------------------------------------------------------------------
 
 func _handle_attack_movement(delta: float) -> void:
 	match attack_role:
@@ -177,42 +107,6 @@ func _handle_runner(delta: float) -> void:
 			runner_timed_out = false
 			runner_timer = 0.0
 
-func _handle_human_attack(delta: float) -> void:
-	var move: Vector2 = Vector2.ZERO
-	if attack_up != "" and Input.is_action_pressed(attack_up):
-		move.y -= 1
-	if attack_down != "" and Input.is_action_pressed(attack_down):
-		move.y += 1
-	if attack_left != "" and Input.is_action_pressed(attack_left):
-		move.x -= 1
-	if attack_right != "" and Input.is_action_pressed(attack_right):
-		move.x += 1
-	if move.length() > 0:
-		move = move.normalized()
-	var new_pos: Vector2 = position + move * ATTACK_MOVE_SPEED * delta
-	new_pos.x = clamp(new_pos.x, 10.0, 2390.0)
-	new_pos.y = clamp(new_pos.y, 10.0, 890.0)
-	new_pos = _avoid_forbidden(new_pos)
-	position = new_pos
-
-func _handle_human_defend(delta: float) -> void:
-	var move: Vector2 = Vector2.ZERO
-	if defend_up != "" and Input.is_action_pressed(defend_up):
-		move.y -= 1
-	if defend_down != "" and Input.is_action_pressed(defend_down):
-		move.y += 1
-	if defend_left != "" and Input.is_action_pressed(defend_left):
-		move.x -= 1
-	if defend_right != "" and Input.is_action_pressed(defend_right):
-		move.x += 1
-	if move.length() > 0:
-		move = move.normalized()
-	var new_pos: Vector2 = position + move * DEFEND_SPEED * delta
-	if constrained:
-		new_pos = new_pos.clamp(bounds_rect.position, bounds_rect.end)
-	new_pos = _avoid_forbidden(new_pos)
-	position = new_pos
-
 func _move_toward_attack_target(delta: float) -> void:
 	if attack_target == Vector2.ZERO:
 		return
@@ -239,20 +133,83 @@ func _move_toward_target(delta: float) -> void:
 	new_pos = _avoid_forbidden(new_pos)
 	position = new_pos
 
+func _handle_human_defend(delta: float) -> void:
+	var move: Vector2 = Vector2.ZERO
+	if defend_up != "" and Input.is_action_pressed(defend_up):
+		move.y -= 1
+	if defend_down != "" and Input.is_action_pressed(defend_down):
+		move.y += 1
+	if defend_left != "" and Input.is_action_pressed(defend_left):
+		move.x -= 1
+	if defend_right != "" and Input.is_action_pressed(defend_right):
+		move.x += 1
+	if move.length() > 0:
+		move = move.normalized()
+	var new_pos: Vector2 = position + move * DEFEND_SPEED * delta
+	if constrained:
+		new_pos = new_pos.clamp(bounds_rect.position, bounds_rect.end)
+	new_pos = _avoid_forbidden(new_pos)
+	position = new_pos
+
 func _avoid_forbidden(new_pos: Vector2) -> Vector2:
 	for rect in forbidden_rects:
 		if rect.has_point(new_pos):
+			# Slide along the nearest edge instead of cancelling
 			var current_in_rect: bool = rect.has_point(position)
 			if current_in_rect:
-				return position
+				return position  # already inside, don't move further
+			
+			# Find which axis to slide on
 			var from_left: bool = position.x < rect.position.x
 			var from_right: bool = position.x > rect.end.x
 			var from_top: bool = position.y < rect.position.y
 			var from_bottom: bool = position.y > rect.end.y
+
 			if from_left or from_right:
+				# Approaching horizontally — allow vertical sliding
 				return Vector2(position.x, new_pos.y)
 			elif from_top or from_bottom:
+				# Approaching vertically — allow horizontal sliding
 				return Vector2(new_pos.x, position.y)
 			else:
 				return position
 	return new_pos
+
+func set_as_aiming(value: bool) -> void:
+	is_aiming = value
+	is_defending = false
+	human_defending = false
+	attack_role = AttackRole.NONE
+	border.visible = false
+	if value:
+		color_rect.color = unit_color.lightened(0.3)
+	else:
+		color_rect.color = unit_color
+
+func set_as_defender(target: Node2D, is_human: bool, up: String = "", down: String = "", left: String = "", right: String = "", stop_dist: float = 20.0) -> void:
+	is_defending = true
+	attack_role = AttackRole.NONE
+	assigned_target = target
+	human_defending = is_human
+	defend_up = up
+	defend_down = down
+	defend_left = left
+	defend_right = right
+	stop_distance = stop_dist
+
+func set_attack_role(new_role: AttackRole, target: Vector2) -> void:
+	attack_role = new_role
+	attack_target = target
+	is_defending = false
+	border.visible = false
+	runner_reached = false
+	runner_timed_out = false
+	runner_timer = 0.0
+	runner_reached_timer = 0.0
+
+func start_mark_delay(delay: float) -> void:
+	mark_delay_timer = delay
+
+func update_runner_target(target: Vector2) -> void:
+	# Update target without resetting timer — preserves timeout accumulation
+	attack_target = target

@@ -15,6 +15,82 @@ offset_right = 1280.0
 offset_bottom = 720.0
 color = Color(0.101960786, 0.22745098, 0.101960786, 1)
 
+[node name="P1Icon" type="Control" parent="." unique_id=2108089601]
+visible = false
+anchors_preset = 0
+offset_left = 574.0
+offset_top = 185.0
+offset_right = 694.0
+offset_bottom = 305.0
+
+[node name="ControllerIcon" type="Label" parent="P1Icon" unique_id=883384107]
+layout_mode = 0
+offset_left = 28.0
+offset_top = 31.0
+offset_right = 94.0
+offset_bottom = 98.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 48
+text = "🎮"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PlayerLabel" type="Label" parent="P1Icon" unique_id=1447640175]
+layout_mode = 0
+offset_left = 47.0
+offset_top = 26.0
+offset_right = 87.0
+offset_bottom = 60.0
+theme_override_font_sizes/font_size = 24
+text = "P1"
+
+[node name="ReadyLabel" type="Label" parent="P1Icon" unique_id=152159939]
+layout_mode = 0
+offset_left = 30.0
+offset_top = 84.0
+offset_right = 94.0
+offset_bottom = 112.0
+theme_override_font_sizes/font_size = 20
+text = "READY"
+
+[node name="P2Icon" type="Control" parent="." unique_id=1321030050]
+visible = false
+anchors_preset = 0
+offset_left = 569.0
+offset_top = 338.0
+offset_right = 689.0
+offset_bottom = 458.0
+
+[node name="ControllerIcon" type="Label" parent="P2Icon" unique_id=768910272]
+layout_mode = 0
+offset_left = 30.0
+offset_top = 31.0
+offset_right = 96.0
+offset_bottom = 98.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 48
+text = "🎮"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PlayerLabel" type="Label" parent="P2Icon" unique_id=1439207546]
+layout_mode = 0
+offset_left = 49.0
+offset_top = 23.0
+offset_right = 89.0
+offset_bottom = 57.0
+theme_override_font_sizes/font_size = 24
+text = "P2"
+
+[node name="ReadyLabel" type="Label" parent="P2Icon" unique_id=131587404]
+layout_mode = 0
+offset_left = 33.0
+offset_top = 90.0
+offset_right = 97.0
+offset_bottom = 118.0
+theme_override_font_sizes/font_size = 20
+text = "READY"
+
 [node name="LeftColumn" type="Control" parent="." unique_id=1605604504]
 anchors_preset = 0
 offset_right = 426.0
@@ -84,9 +160,6 @@ horizontal_alignment = 1
 [node name="StartLabel" type="Label" parent="." unique_id=1307830638]
 visible = false
 layout_mode = 0
-offset_left = 523.0
-offset_top = 635.0
-offset_right = 763.0
-offset_bottom = 685.0
-theme_override_font_sizes/font_size = 36
-text = "Starting in 3..."
+offset_right = 40.0
+offset_bottom = 23.0
+text = "PRESS A TO START"

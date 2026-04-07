@@ -10,6 +10,7 @@ func _ready() -> void:
 	area_entered.connect(_on_area_entered)
 
 func _on_area_entered(area: Area2D) -> void:
+	#print("area entered: ", area.name, " active=", active)
 	if active:
 		paddle_hit.emit(area)
 
@@ -69,6 +70,7 @@ func _physics_process(delta: float) -> void:
 	velocity.y += 400.0 * delta
 	position += velocity * delta
 
+	# Safety wall clamps
 	if position.x < 20.0:
 		position.x = 20.0
 		velocity.x = abs(velocity.x)
@@ -76,6 +78,7 @@ func _physics_process(delta: float) -> void:
 		position.x = 440.0
 		velocity.x = -abs(velocity.x)
 
+	# Floor detection — ball origin is centre, ball is 40px tall so half = 20
 	if position.y >= 680.0:
 		position.y = 680.0
 		velocity = Vector2.ZERO

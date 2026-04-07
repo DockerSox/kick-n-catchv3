@@ -1,5 +1,6 @@
 extends Node2D
 
+
 @export var RADIUS_INNER: float = 200.0
 @export var RADIUS_MIDDLE: float = 300.0
 @export var RADIUS_OUTER: float = 400.0
@@ -40,43 +41,13 @@ func _ready() -> void:
 	countdown_label.visible = false
 	visible = false
 
-# Called when a human player controls the aiming unit.
-func activate_with_input(unit: Node2D, input_id: String) -> void:
-	_setup(unit)
-	match input_id:
-		"kb0":
-			aim_action_left  = "kb0_aim_left"
-			aim_action_right = "kb0_aim_right"
-			aim_action_up    = "kb0_aim_up"
-			aim_action_down  = "kb0_aim_down"
-			kick_action      = "kb0_kick"
-		"kb1":
-			aim_action_left  = "kb1_aim_left"
-			aim_action_right = "kb1_aim_right"
-			aim_action_up    = "kb1_aim_up"
-			aim_action_down  = "kb1_aim_down"
-			kick_action      = "kb1_kick"
-		_:
-			var n: String = input_id.substr(3)   # "joy0" -> "0"
-			aim_action_left  = "joy_aim_left_"  + n
-			aim_action_right = "joy_aim_right_" + n
-			aim_action_up    = "joy_aim_up_"    + n
-			aim_action_down  = "joy_aim_down_"  + n
-			kick_action      = "joy_kick_"      + n
-
-# Fallback: no human player on this team (AI team). Crosshair is inactive.
 func activate(unit: Node2D) -> void:
-	_setup(unit)
-	aim_action_left  = ""
+	aim_action_left = ""
 	aim_action_right = ""
-	aim_action_up    = ""
-	aim_action_down  = ""
-	kick_action      = ""
-	# No human controlling this team — deactivate immediately
-	active = false
-	visible = false
+	aim_action_up = ""
+	aim_action_down = ""
+	kick_action = ""
 
-func _setup(unit: Node2D) -> void:
 	aiming_unit = unit
 	pitch = get_parent()
 	position = unit.position
@@ -93,6 +64,21 @@ func _setup(unit: Node2D) -> void:
 	line_v.default_color = aiming_color
 	countdown_label.add_theme_color_override("font_color", Color.WHITE)
 
+	# Determine which player controls this team
+	var team: String = unit.team
+	var player_prefix: String = ""
+	if GameState.p1_team == team:
+		player_prefix = "p1"
+	elif GameState.p2_team == team:
+		player_prefix = "p2"
+
+	if player_prefix != "":
+		aim_action_left = player_prefix + "_aim_left"
+		aim_action_right = player_prefix + "_aim_right"
+		aim_action_up = player_prefix + "_aim_up"
+		aim_action_down = player_prefix + "_aim_down"
+		kick_action = player_prefix + "_kick"
+
 func _physics_process(delta: float) -> void:
 	if not active:
 		return
@@ -107,21 +93,24 @@ func _physics_process(delta: float) -> void:
 
 func _handle_movement(delta: float) -> void:
 	var move: Vector2 = Vector2.ZERO
-	if aim_action_left  != "" and Input.is_action_pressed(aim_action_left):
+	if aim_action_left != "" and Input.is_action_pressed(aim_action_left):
 		move.x -= 1
 	if aim_action_right != "" and Input.is_action_pressed(aim_action_right):
 		move.x += 1
-	if aim_action_up    != "" and Input.is_action_pressed(aim_action_up):
+	if aim_action_up != "" and Input.is_action_pressed(aim_action_up):
 		move.y -= 1
-	if aim_action_down  != "" and Input.is_action_pressed(aim_action_down):
+	if aim_action_down != "" and Input.is_action_pressed(aim_action_down):
 		move.y += 1
+
 	if move.length() > 0:
 		move = move.normalized()
+
 	var new_pos: Vector2 = position + move * MOVE_SPEED * delta
 	var offset: Vector2 = new_pos - aiming_unit.position
 	if offset.length() > RADIUS_OUTER:
 		offset = offset.normalized() * RADIUS_OUTER
 		new_pos = aiming_unit.position + offset
+
 	new_pos.x = clamp(new_pos.x, 50.0, 2350.0)
 	new_pos.y = clamp(new_pos.y, 50.0, 850.0)
 	position = new_pos
@@ -175,10 +164,13 @@ func _resolve_kick() -> void:
 			elif area.team == "B":
 				units_b_inside.append(area)
 
+	var attacking: String = aiming_unit.team
+
 	var a_goalie_only: bool = units_a_inside.size() == 1 and units_a_inside[0].role == "goalie"
 	var b_goalie_only: bool = units_b_inside.size() == 1 and units_b_inside[0].role == "goalie"
 	var a_has_goalie: bool = units_a_inside.any(func(u): return u.role == "goalie")
 	var b_has_goalie: bool = units_b_inside.any(func(u): return u.role == "goalie")
+
 	var units_a_no_goalie: Array = units_a_inside.filter(func(u): return u.role != "goalie")
 	var units_b_no_goalie: Array = units_b_inside.filter(func(u): return u.role != "goalie")
 
@@ -200,7 +192,7 @@ func _resolve_kick() -> void:
 	elif b_has_goalie and units_a_no_goalie.size() > 0:
 		_trigger_contest(position)
 	else:
-		_no_unit_resolution(position)
+		_no_unit_resolution(attacking, position)
 
 func _trigger_contest(pos: Vector2) -> void:
 	GameState.return_scene = "res://Scenes/pitch.tscn"
@@ -208,7 +200,7 @@ func _trigger_contest(pos: Vector2) -> void:
 	GameState.contest_crosshair_pos = pos
 	GameState.go_to_scene("res://Scenes/main.tscn")
 
-func _no_unit_resolution(pos: Vector2) -> void:
+func _no_unit_resolution(_attacking_team: String, pos: Vector2) -> void:
 	GameState.return_scene = "res://Scenes/pitch.tscn"
 	GameState.contest_reason = "no_unit"
 	GameState.contest_crosshair_pos = pos
