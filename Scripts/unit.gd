@@ -56,15 +56,14 @@ func _physics_process(delta: float) -> void:
 		return
 	if is_aiming:
 		return
+	if mark_delay_timer > 0.0:
+		mark_delay_timer -= delta
+		return
 	if is_defending:
 		if human_defending:
 			_handle_human_defend(delta)
-		else:
-			if mark_delay_timer > 0.0:
-				mark_delay_timer -= delta
-				return
-			if assigned_target != null:
-				_move_toward_target(delta)
+		elif assigned_target != null:
+			_move_toward_target(delta)
 		return
 	if attack_role != AttackRole.NONE:
 		_handle_attack_movement(delta)

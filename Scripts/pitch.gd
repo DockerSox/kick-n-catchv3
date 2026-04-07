@@ -29,7 +29,7 @@ var attack_update_timer: float = 0.0
 var marker_defender: Node2D = null
 var timeout_rotation_cooldown: float = 0.0
 
-@export var MARK_DELAY: float = 0.5
+@export var MARK_DELAY: float = 1.0
 
 const TIMEOUT_ROTATION_COOLDOWN_TIME: float = 3.0
 const ROTATION_COOLDOWN_TIME: float = 2.0
@@ -45,11 +45,11 @@ const POSITIONS_A: Dictionary = {
 	"attack":  Vector2(650, 450),
 }
 const POSITIONS_B: Dictionary = {
-	"centre":  Vector2(1150, 450),   # centre of pitch
-	"goalie":  Vector2(2300, 450),   # in goal square
-	"winger":  Vector2(1200, 750),   # centre-half-back, wide
-	"defence": Vector2(550, 450),   # centre-half-back, central
-	"attack":  Vector2(1750, 450),   # centre-half-forward, wide
+	"centre":  Vector2(1150, 450),
+	"goalie":  Vector2(2300, 450),
+	"winger":  Vector2(1200, 750),
+	"defence": Vector2(550, 450),
+	"attack":  Vector2(1750, 450),
 }
 
 func _ready() -> void:
@@ -562,6 +562,10 @@ func on_kick_launched(kick_pos: Vector2) -> void:
 			continue
 		if unit == marker_defender:
 			unit.start_mark_delay(MARK_DELAY)
+			# After delay, marker runs to kick position like other defenders
+			unit.assigned_target = null
+			unit.set_attack_role(unit.AttackRole.RUNNER, kick_pos)
+			unit.mark_delay_timer = MARK_DELAY  # re-set after set_attack_role clears it
 			continue
 		unit.set_attack_role(unit.AttackRole.RUNNER, kick_pos)
 
