@@ -3,10 +3,10 @@ extends Node2D
 @onready var ball: Area2D = $SubViewportContainer/SubViewport/Ball
 @onready var paddle_left: Area2D = $SubViewportContainer/SubViewport/ContestUnitA
 @onready var paddle_right: Area2D = $SubViewportContainer/SubViewport/ContestUnitB
+
 @onready var win_label: Label = $SubViewportContainer/SubViewport/UI/WinLabel
 
 var game_over: bool = false
-@export var two_player: bool = true
 
 func _ready() -> void:
 	win_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -25,35 +25,81 @@ func _start_round() -> void:
 	paddle_left.position = paddle_left.start_position
 	paddle_right.start_position = Vector2(380.0, 640.0)
 	paddle_right.position = paddle_right.start_position
-	paddle_right.is_cpu = not two_player
 
-	# Assign controls based on which player controls which team
-	if GameState.p1_team == "A":
-		paddle_left.move_left_action = "p1_left"
-		paddle_left.move_right_action = "p1_right"
-		paddle_left.launch_action = "p1_launch"
-		paddle_right.move_left_action = "p2_left"
-		paddle_right.move_right_action = "p2_right"
-		paddle_right.launch_action = "p2_launch"
-	else:
-		paddle_left.move_left_action = "p2_left"
-		paddle_left.move_right_action = "p2_right"
-		paddle_left.launch_action = "p2_launch"
-		paddle_right.move_left_action = "p1_left"
-		paddle_right.move_right_action = "p1_right"
-		paddle_right.launch_action = "p1_launch"
+	# Determine which player (input_id) controls each paddle.
+	# The contest player index was stored before the scene change.
+	# Left paddle = attacking team player, Right paddle = defending team player.
+	# If no human on a side, that paddle is CPU.
+	var attacking: String = GameState.attacking_team if GameState.attacking_team != "" else "A"
+	var defending: String = "B" if attacking == "A" else "A"
+
+	var attacking_players: Array = GameState.get_players_on_team(attacking)
+	var defending_players: Array = GameState.get_players_on_team(defending)
+
+	# Left paddle — contest player from attacking team
+	var left_input_id: String = ""
+	if GameState.contest_player_index >= 0 and \
+	   GameState.contest_player_index < GameState.players.size():
+		var cp = GameState.players[GameState.contest_player_index]
+		if cp["team"] == attacking:
+			left_input_id = cp["input_id"]
+
+	# Fallback: first attacking player
+	if left_input_id == "" and attacking_players.size() > 0:
+		left_input_id = attacking_players[0]["input_id"]
+
+	# Right paddle — nearest defending player (first in list)
+	var right_input_id: String = ""
+	if defending_players.size() > 0:
+		right_input_id = defending_players[0]["input_id"]
+
+	_setup_paddle(paddle_left, left_input_id, attacking)
+	_setup_paddle(paddle_right, right_input_id, defending)
+
+	# Set paddle colours to match team colours
+	paddle_left.set_paddle_color(_get_team_color(attacking))
+	paddle_right.set_paddle_color(_get_team_color(defending))
 
 	await get_tree().create_timer(1.0).timeout
 	ball.launch()
 	paddle_left.activate()
 	paddle_right.activate()
 
-	if not two_player:
+	if paddle_right.is_cpu:
 		var cpu_delay: float = randf_range(1.0, 3.0)
 		await get_tree().create_timer(cpu_delay).timeout
 		paddle_right.cpu_launch()
 
 	$SubViewportContainer/SubViewport.handle_input_locally = false
+
+func _setup_paddle(paddle: Area2D, input_id: String, _team: String) -> void:
+	if input_id == "":
+		paddle.is_cpu = true
+		paddle.move_left_action = ""
+		paddle.move_right_action = ""
+		paddle.launch_action = ""
+		return
+
+	paddle.is_cpu = false
+	match input_id:
+		"kb0":
+			paddle.move_left_action  = "kb0_left"
+			paddle.move_right_action = "kb0_right"
+			paddle.launch_action     = "kb0_confirm"
+		"kb1":
+			paddle.move_left_action  = "kb1_left"
+			paddle.move_right_action = "kb1_right"
+			paddle.launch_action     = "kb1_confirm"
+		_:
+			var n: String = input_id.substr(3)
+			paddle.move_left_action  = "joy_aim_left_"  + n
+			paddle.move_right_action = "joy_aim_right_" + n
+			paddle.launch_action     = "joy_kick_"      + n
+
+func _get_team_color(team: String) -> Color:
+	if team == "A":
+		return Color(0.42, 0.05, 0.68, 1)
+	return Color(0.8, 0.27, 0.8, 1)
 
 func _on_ball_hit_bottom() -> void:
 	if game_over:
@@ -70,15 +116,14 @@ func _try_again() -> void:
 func _on_paddle_hit(area: Area2D) -> void:
 	if game_over:
 		return
+	var attacking: String = GameState.attacking_team if GameState.attacking_team != "" else "A"
+	var defending: String = "B" if attacking == "A" else "A"
 	if area == paddle_left:
-		_end_game("Player 1 Wins!", "A")
+		_end_game(attacking)
 	elif area == paddle_right:
-		if two_player:
-			_end_game("Player 2 Wins!", "B")
-		else:
-			_end_game("CPU Wins!", "B")
+		_end_game(defending)
 
-func _end_game(message: String, winner: String) -> void:
+func _end_game(winner: String) -> void:
 	if game_over:
 		return
 	game_over = true
@@ -90,6 +135,7 @@ func _end_game(message: String, winner: String) -> void:
 	ball.active = false
 	ball.velocity = Vector2.ZERO
 
+	var message: String = "Team A Wins!" if winner == "A" else "Team B Wins!"
 	win_label.text = message
 	win_label.visible = true
 	GameState.contest_winner = winner
