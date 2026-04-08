@@ -16,8 +16,7 @@ func _ready() -> void:
 
 func _start_round() -> void:
 	game_over = false
-	var screen: Vector2 = Vector2(460, 700)
-	ball.position = Vector2(screen.x / 2.0, screen.y / 3.0)
+	ball.position = Vector2(230.0, 233.0)
 	ball.velocity = Vector2.ZERO
 	ball.active = false
 
@@ -26,30 +25,34 @@ func _start_round() -> void:
 	paddle_right.start_position = Vector2(380.0, 640.0)
 	paddle_right.position = paddle_right.start_position
 
-	var attacking: String = GameState.attacking_team if GameState.attacking_team != "" else "A"
-	var defending: String = "B" if attacking == "A" else "A"
+	# Left paddle is always Team A, right paddle is always Team B.
+	var players_a: Array = GameState.get_players_on_team("A")
+	var players_b: Array = GameState.get_players_on_team("B")
 
-	var attacking_players: Array = GameState.get_players_on_team(attacking)
-	var defending_players: Array = GameState.get_players_on_team(defending)
-
+	# Find which player controls their team's contest paddle.
+	# contest_player_index holds the attacking team's relevant player.
 	var left_input_id: String = ""
+	var right_input_id: String = ""
+
 	if GameState.contest_player_index >= 0 and \
 	   GameState.contest_player_index < GameState.players.size():
 		var cp = GameState.players[GameState.contest_player_index]
-		if cp["team"] == attacking:
+		if cp["team"] == "A":
 			left_input_id = cp["input_id"]
-	if left_input_id == "" and attacking_players.size() > 0:
-		left_input_id = attacking_players[0]["input_id"]
+		elif cp["team"] == "B":
+			right_input_id = cp["input_id"]
 
-	var right_input_id: String = ""
-	if defending_players.size() > 0:
-		right_input_id = defending_players[0]["input_id"]
+	# Fallback: first player on each team if not already set
+	if left_input_id == "" and players_a.size() > 0:
+		left_input_id = players_a[0]["input_id"]
+	if right_input_id == "" and players_b.size() > 0:
+		right_input_id = players_b[0]["input_id"]
 
 	_setup_paddle(paddle_left, left_input_id)
 	_setup_paddle(paddle_right, right_input_id)
 
-	paddle_left.set_paddle_color(_get_team_color(attacking))
-	paddle_right.set_paddle_color(_get_team_color(defending))
+	paddle_left.set_paddle_color(_get_team_color("A"))
+	paddle_right.set_paddle_color(_get_team_color("B"))
 
 	await get_tree().create_timer(1.0).timeout
 	ball.launch()

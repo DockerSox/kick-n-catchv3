@@ -27,7 +27,7 @@ var rotation_cooldown: float = 0.0
 var attack_update_timer: float = 0.0
 var marker_defender: Node2D = null
 var timeout_rotation_cooldown: float = 0.0
-
+var last_resolve_pos: Vector2 = Vector2(1200.0, 450.0)
 var player_unit_map: Dictionary = {}
 var off_screen_arrows: Array = []
 
@@ -408,14 +408,45 @@ func _assign_defenders() -> void:
 		unit.attack_role = unit.AttackRole.NONE
 
 	marker_defender = null
-	var marker_dist: float = INF
-	for unit in defending_units:
-		if unit.role == "goalie" or _is_unit_human_controlled(unit):
-			continue
-		var d: float = unit.position.distance_to(aiming_unit.position)
-		if d < marker_dist:
-			marker_dist = d
-			marker_defender = unit
+	var defending_units_no_goalie: Array = defending_units.filter(
+		func(u): return u.role != "goalie"
+	)
+
+	if GameState.contest_reason == "kickoff":
+		# After kickoff or post-goal: defending centre unit is the marker
+		for unit in defending_units:
+			if unit.role == "centre":
+				marker_defender = unit
+				break
+	else:
+		# After clash, no_unit, or possession change:
+		# defending unit nearest the last resolve position is the marker
+		var marker_dist: float = INF
+		for unit in defending_units_no_goalie:
+			var d: float = unit.position.distance_to(last_resolve_pos)
+			if d < marker_dist:
+				marker_dist = d
+				marker_defender = unit
+
+	# If the chosen marker is human-controlled and there are spare AI units,
+	# shift that human's control to another non-goalie AI unit on their team
+	if marker_defender != null and _is_unit_human_controlled(marker_defender):
+		var defending_players_count: int = GameState.get_players_on_team(
+			"B" if attacking_team == "A" else "A"
+		).size()
+		var ai_alternatives: Array = defending_units_no_goalie.filter(
+			func(u): return u != marker_defender and not _is_unit_human_controlled(u)
+		)
+		if defending_players_count < 4 and ai_alternatives.size() > 0:
+			# Shift the human to the first available AI unit
+			var input_id: String = _get_input_id_for_unit(marker_defender)
+			var new_unit: Node2D = ai_alternatives[0]
+			for p in GameState.players:
+				if p["input_id"] == input_id:
+					p["unit_role"] = new_unit.role
+					player_unit_map[input_id] = new_unit
+					break
+			# marker_defender stays as the original unit (now AI-controlled)
 
 	if marker_defender != null:
 		var defending_direction: float = -1.0 if attacking_team == "A" else 1.0
@@ -872,6 +903,8 @@ func on_kick_resolved(winning_team: String, resolve_position: Vector2, is_goal: 
 		_score_goal(winning_team)
 		return
 
+	last_resolve_pos = resolve_position
+
 	var winning_units: Array = all_units_a if winning_team == "A" else all_units_b
 	var nearest: Node2D = _nearest_unit_to(winning_units, resolve_position, true)
 	if nearest == null:
@@ -880,15 +913,12 @@ func on_kick_resolved(winning_team: String, resolve_position: Vector2, is_goal: 
 	var winning_players: Array = GameState.get_players_on_team(winning_team)
 
 	if winning_players.size() == 1:
-		# Remap the winning team's human player to whichever of their own
-		# units is nearest the resolve position, then make them the aimer.
 		var p = winning_players[0]
 		p["unit_role"] = nearest.role
 		player_unit_map[p["input_id"]] = nearest
 		set_aiming_unit(nearest)
 		return
 
-	# Multiple humans on winning team: nearest human to resolve pos becomes aimer.
 	var new_aimer: Node2D = _get_human_unit_for_aiming(winning_team, resolve_position)
 	if new_aimer == null:
 		new_aimer = nearest

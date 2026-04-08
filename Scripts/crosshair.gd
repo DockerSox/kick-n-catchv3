@@ -43,7 +43,6 @@ func _ready() -> void:
 	countdown_label.visible = false
 	visible = false
 
-# Called when a human player controls the aiming unit.
 func activate_with_input(unit: Node2D, input_id: String) -> void:
 	is_ai = false
 	ai_aim_timer = 0.0
@@ -69,7 +68,6 @@ func activate_with_input(unit: Node2D, input_id: String) -> void:
 			aim_action_down  = "joy_aim_down_"  + n
 			kick_action      = "joy_kick_"      + n
 
-# Called when an AI team controls the aiming unit.
 func activate_ai(unit: Node2D) -> void:
 	is_ai = true
 	ai_aim_timer = 0.0
@@ -80,7 +78,6 @@ func activate_ai(unit: Node2D) -> void:
 	kick_action      = ""
 	_setup(unit)
 
-# Called when no team controls this unit (should not occur in normal play).
 func activate(unit: Node2D) -> void:
 	is_ai = false
 	ai_aim_timer = 0.0
@@ -150,7 +147,6 @@ func _handle_movement(delta: float) -> void:
 	position = new_pos
 
 func _handle_ai_movement(delta: float) -> void:
-	# Find the goalie of the aiming unit's team
 	var goalie_pos: Vector2 = aiming_unit.position
 	if pitch != null:
 		var team_units: Array = pitch.all_units_a if aiming_unit.team == "A" else pitch.all_units_b
@@ -159,7 +155,6 @@ func _handle_ai_movement(delta: float) -> void:
 				goalie_pos = u.position
 				break
 
-	# Move crosshair toward goalie, clamped to RADIUS_OUTER
 	var dir: Vector2 = (goalie_pos - aiming_unit.position)
 	if dir.length() > RADIUS_OUTER:
 		dir = dir.normalized() * RADIUS_OUTER
@@ -173,18 +168,13 @@ func _check_ai_launch(delta: float) -> void:
 	if ai_aim_timer < 1.0:
 		return
 
-	# Launch when runner is the closest unit to the crosshair,
-	# or immediately if there is no runner (fallback).
 	if pitch == null:
-		_start_countdown()
 		return
 
 	var runner: Node2D = pitch.runner
 	if runner == null:
-		_start_countdown()
 		return
 
-	# Find closest non-goalie unit to crosshair among all units
 	var all_units: Array = pitch.all_units_a + pitch.all_units_b
 	var closest: Node2D = null
 	var closest_dist: float = INF
