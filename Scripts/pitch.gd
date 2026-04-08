@@ -114,12 +114,11 @@ func _ready() -> void:
 				contest_aimer = _get_centre_unit(attacking_team)
 			set_aiming_unit(contest_aimer)
 		else:
-			# Kickoff after contest: start from centre unit
-			var centre_unit: Node2D = _get_centre_unit(attacking_team)
-			var start_aimer: Node2D = _get_human_unit_for_aiming(attacking_team, centre_unit.position)
-			if start_aimer == null:
-				start_aimer = centre_unit
-			set_aiming_unit(start_aimer)
+			var kickoff_centre: Node2D = _get_centre_unit(attacking_team)
+			var kickoff_aimer: Node2D = _get_human_unit_for_aiming(attacking_team, kickoff_centre.position)
+			if kickoff_aimer == null:
+				kickoff_aimer = kickoff_centre
+			set_aiming_unit(kickoff_aimer)
 
 		update_score()
 		_update_goal_arrow()
@@ -330,13 +329,20 @@ func _get_player_num_for_input(input_id: String) -> int:
 			return i + 1
 	return 0
 
-func _get_input_prefix(input_id: String) -> String:
+func _get_move_actions(input_id: String) -> Dictionary:
 	match input_id:
-		"kb0": return "kb0_aim"
-		"kb1": return "kb1_aim"
+		"kb0":
+			return {"up": "kb0_aim_up", "down": "kb0_aim_down", "left": "kb0_aim_left", "right": "kb0_aim_right"}
+		"kb1":
+			return {"up": "kb1_aim_up", "down": "kb1_aim_down", "left": "kb1_aim_left", "right": "kb1_aim_right"}
 		_:
 			var n: String = input_id.substr(3)
-			return "joy_aim_" + n
+			return {
+				"up":    "joy_aim_up_"    + n,
+				"down":  "joy_aim_down_"  + n,
+				"left":  "joy_aim_left_"  + n,
+				"right": "joy_aim_right_" + n
+			}
 
 func _are_all_human_units_offscreen(team: String) -> bool:
 	var vp_rect: Rect2 = _get_viewport_world_rect()
@@ -442,10 +448,10 @@ func _assign_defenders() -> void:
 		var unit: Node2D = player_unit_map.get(p["input_id"], null)
 		if unit == null or unit.role == "goalie":
 			continue
-		var prefix: String = _get_input_prefix(p["input_id"])
+		var actions: Dictionary = _get_move_actions(p["input_id"])
 		unit.set_as_defender(null, true,
-			prefix + "_up", prefix + "_down",
-			prefix + "_left", prefix + "_right", 0.0)
+			actions["up"], actions["down"],
+			actions["left"], actions["right"], 0.0)
 		unit.set_human_defender_highlight(true)
 
 	_assign_attack_movement()
@@ -468,15 +474,15 @@ func _assign_attack_movement() -> void:
 	if human_players_on_team.size() == 1:
 		_assign_attack_roles()
 		var hu = non_aiming_humans[0]
-		var prefix: String = _get_input_prefix(hu["player"]["input_id"])
+		var actions: Dictionary = _get_move_actions(hu["player"]["input_id"])
 		hu["unit"].set_as_human_attacker(
-			prefix + "_up", prefix + "_down", prefix + "_left", prefix + "_right")
+			actions["up"], actions["down"], actions["left"], actions["right"])
 		return
 
 	for hu in non_aiming_humans:
-		var prefix: String = _get_input_prefix(hu["player"]["input_id"])
+		var actions: Dictionary = _get_move_actions(hu["player"]["input_id"])
 		hu["unit"].set_as_human_attacker(
-			prefix + "_up", prefix + "_down", prefix + "_left", prefix + "_right")
+			actions["up"], actions["down"], actions["left"], actions["right"])
 
 	var ai_units: Array = attacking_units.filter(
 		func(u): return u != aiming_unit and u.role != "goalie" and not _is_unit_human_controlled(u)
@@ -846,6 +852,8 @@ func set_aiming_unit(unit: Node2D) -> void:
 	var input_id: String = _get_input_id_for_unit(unit)
 	if input_id != "":
 		crosshair.activate_with_input(unit, input_id)
+	elif GameState.get_players_on_team(attacking_team).size() == 0:
+		crosshair.activate_ai(unit)
 	else:
 		crosshair.activate(unit)
 
@@ -864,12 +872,26 @@ func on_kick_resolved(winning_team: String, resolve_position: Vector2, is_goal: 
 		_score_goal(winning_team)
 		return
 
-	# Prefer the human unit nearest to the resolve position.
-	# If no human on this team, fall back to nearest AI unit.
+	var winning_units: Array = all_units_a if winning_team == "A" else all_units_b
+	var nearest: Node2D = _nearest_unit_to(winning_units, resolve_position, true)
+	if nearest == null:
+		nearest = _get_centre_unit(winning_team)
+
+	var winning_players: Array = GameState.get_players_on_team(winning_team)
+
+	if winning_players.size() == 1:
+		# Remap the winning team's human player to whichever of their own
+		# units is nearest the resolve position, then make them the aimer.
+		var p = winning_players[0]
+		p["unit_role"] = nearest.role
+		player_unit_map[p["input_id"]] = nearest
+		set_aiming_unit(nearest)
+		return
+
+	# Multiple humans on winning team: nearest human to resolve pos becomes aimer.
 	var new_aimer: Node2D = _get_human_unit_for_aiming(winning_team, resolve_position)
 	if new_aimer == null:
-		var winning_units: Array = all_units_a if winning_team == "A" else all_units_b
-		new_aimer = _nearest_unit_to(winning_units, resolve_position, true)
+		new_aimer = nearest
 	set_aiming_unit(new_aimer)
 
 func on_kick_launched(kick_pos: Vector2) -> void:

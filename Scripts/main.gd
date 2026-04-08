@@ -26,37 +26,28 @@ func _start_round() -> void:
 	paddle_right.start_position = Vector2(380.0, 640.0)
 	paddle_right.position = paddle_right.start_position
 
-	# Determine which player (input_id) controls each paddle.
-	# The contest player index was stored before the scene change.
-	# Left paddle = attacking team player, Right paddle = defending team player.
-	# If no human on a side, that paddle is CPU.
 	var attacking: String = GameState.attacking_team if GameState.attacking_team != "" else "A"
 	var defending: String = "B" if attacking == "A" else "A"
 
 	var attacking_players: Array = GameState.get_players_on_team(attacking)
 	var defending_players: Array = GameState.get_players_on_team(defending)
 
-	# Left paddle — contest player from attacking team
 	var left_input_id: String = ""
 	if GameState.contest_player_index >= 0 and \
 	   GameState.contest_player_index < GameState.players.size():
 		var cp = GameState.players[GameState.contest_player_index]
 		if cp["team"] == attacking:
 			left_input_id = cp["input_id"]
-
-	# Fallback: first attacking player
 	if left_input_id == "" and attacking_players.size() > 0:
 		left_input_id = attacking_players[0]["input_id"]
 
-	# Right paddle — nearest defending player (first in list)
 	var right_input_id: String = ""
 	if defending_players.size() > 0:
 		right_input_id = defending_players[0]["input_id"]
 
-	_setup_paddle(paddle_left, left_input_id, attacking)
-	_setup_paddle(paddle_right, right_input_id, defending)
+	_setup_paddle(paddle_left, left_input_id)
+	_setup_paddle(paddle_right, right_input_id)
 
-	# Set paddle colours to match team colours
 	paddle_left.set_paddle_color(_get_team_color(attacking))
 	paddle_right.set_paddle_color(_get_team_color(defending))
 
@@ -65,22 +56,20 @@ func _start_round() -> void:
 	paddle_left.activate()
 	paddle_right.activate()
 
-	if paddle_right.is_cpu:
-		var cpu_delay: float = randf_range(1.0, 3.0)
-		await get_tree().create_timer(cpu_delay).timeout
-		paddle_right.cpu_launch()
-
 	$SubViewportContainer/SubViewport.handle_input_locally = false
 
-func _setup_paddle(paddle: Area2D, input_id: String, _team: String) -> void:
+func _setup_paddle(paddle: Area2D, input_id: String) -> void:
 	if input_id == "":
-		paddle.is_cpu = true
+		# AI-controlled paddle
+		paddle.is_ai = true
+		paddle.ball_ref = ball
 		paddle.move_left_action = ""
 		paddle.move_right_action = ""
 		paddle.launch_action = ""
 		return
 
-	paddle.is_cpu = false
+	paddle.is_ai = false
+	paddle.ball_ref = null
 	match input_id:
 		"kb0":
 			paddle.move_left_action  = "kb0_left"

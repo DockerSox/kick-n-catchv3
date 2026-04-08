@@ -7,9 +7,6 @@ size = Vector2(30, 50)
 
 [node name="Unit" type="Area2D" unique_id=253754495]
 script = ExtResource("1_yjw0f")
-ATTACK_MOVE_SPEED = 120.0
-MOVE_SPEED = 120.0
-DEFEND_SPEED = 120.0
 
 [node name="Border" type="ColorRect" parent="." unique_id=69689989]
 offset_left = -17.0

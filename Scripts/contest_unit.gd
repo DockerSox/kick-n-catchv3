@@ -1,6 +1,5 @@
 extends Area2D
 
-@export var is_cpu: bool = false
 @export var move_left_action: String = ""
 @export var move_right_action: String = ""
 @export var launch_action: String = ""
@@ -20,6 +19,10 @@ const GRAVITY: float = 400.0
 const HALF_HEIGHT: float = 60.0
 
 var start_position: Vector2 = Vector2.ZERO
+
+# Set to true for AI-controlled paddles. Main sets ball_ref before activating.
+var is_ai: bool = false
+var ball_ref: Node2D = null
 
 @onready var arrow: Line2D = $Arrow
 @onready var arrow_left: Line2D = $ArrowLeft
@@ -52,9 +55,10 @@ func _physics_process(delta: float) -> void:
 			_handle_movement(delta)
 
 func _handle_aiming(delta: float) -> void:
-	if is_cpu:
-		aim_angle_deg += randf_range(-1.0, 1.0) * AIM_SPEED * delta
-		aim_angle_deg = clamp(aim_angle_deg, AIM_MIN, AIM_MAX)
+	if is_ai:
+		# Launch the moment the ball starts falling (velocity.y > 0)
+		if ball_ref != null and ball_ref.active and ball_ref.velocity.y > 0:
+			_launch()
 	else:
 		if move_left_action != "" and Input.is_action_pressed(move_left_action):
 			aim_angle_deg += AIM_SPEED * delta
@@ -72,10 +76,6 @@ func _launch() -> void:
 	arrow_right.visible = false
 	var rad: float = deg_to_rad(aim_angle_deg)
 	velocity = Vector2(cos(rad), -sin(rad)) * LAUNCH_SPEED
-
-func cpu_launch() -> void:
-	if state == State.AIMING:
-		_launch()
 
 func _handle_movement(delta: float) -> void:
 	velocity.y += GRAVITY * delta

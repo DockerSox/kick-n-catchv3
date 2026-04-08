@@ -24,6 +24,9 @@ var aim_action_up: String = ""
 var aim_action_down: String = ""
 var kick_action: String = ""
 
+var is_ai: bool = false
+var ai_aim_timer: float = 0.0
+
 @onready var countdown_label: Label = $CountdownLabel
 @onready var collision_shape: CollisionShape2D = $CollisionArea/CollisionShape2D
 @onready var circle: Line2D = $Circle
@@ -42,6 +45,8 @@ func _ready() -> void:
 
 # Called when a human player controls the aiming unit.
 func activate_with_input(unit: Node2D, input_id: String) -> void:
+	is_ai = false
+	ai_aim_timer = 0.0
 	_setup(unit)
 	match input_id:
 		"kb0":
@@ -57,22 +62,34 @@ func activate_with_input(unit: Node2D, input_id: String) -> void:
 			aim_action_down  = "kb1_aim_down"
 			kick_action      = "kb1_kick"
 		_:
-			var n: String = input_id.substr(3)   # "joy0" -> "0"
+			var n: String = input_id.substr(3)
 			aim_action_left  = "joy_aim_left_"  + n
 			aim_action_right = "joy_aim_right_" + n
 			aim_action_up    = "joy_aim_up_"    + n
 			aim_action_down  = "joy_aim_down_"  + n
 			kick_action      = "joy_kick_"      + n
 
-# Fallback: no human player on this team (AI team). Crosshair is inactive.
+# Called when an AI team controls the aiming unit.
+func activate_ai(unit: Node2D) -> void:
+	is_ai = true
+	ai_aim_timer = 0.0
+	aim_action_left  = ""
+	aim_action_right = ""
+	aim_action_up    = ""
+	aim_action_down  = ""
+	kick_action      = ""
+	_setup(unit)
+
+# Called when no team controls this unit (should not occur in normal play).
 func activate(unit: Node2D) -> void:
+	is_ai = false
+	ai_aim_timer = 0.0
 	_setup(unit)
 	aim_action_left  = ""
 	aim_action_right = ""
 	aim_action_up    = ""
 	aim_action_down  = ""
 	kick_action      = ""
-	# No human controlling this team — deactivate immediately
 	active = false
 	visible = false
 
@@ -99,11 +116,17 @@ func _physics_process(delta: float) -> void:
 	if countdown_active:
 		_handle_countdown(delta)
 		return
-	_handle_movement(delta)
-	_update_zone()
-	_update_countdown_label()
-	if kick_action != "" and Input.is_action_just_pressed(kick_action):
-		_start_countdown()
+	if is_ai:
+		_handle_ai_movement(delta)
+		_update_zone()
+		_update_countdown_label()
+		_check_ai_launch(delta)
+	else:
+		_handle_movement(delta)
+		_update_zone()
+		_update_countdown_label()
+		if kick_action != "" and Input.is_action_just_pressed(kick_action):
+			_start_countdown()
 
 func _handle_movement(delta: float) -> void:
 	var move: Vector2 = Vector2.ZERO
@@ -125,6 +148,56 @@ func _handle_movement(delta: float) -> void:
 	new_pos.x = clamp(new_pos.x, 50.0, 2350.0)
 	new_pos.y = clamp(new_pos.y, 50.0, 850.0)
 	position = new_pos
+
+func _handle_ai_movement(delta: float) -> void:
+	# Find the goalie of the aiming unit's team
+	var goalie_pos: Vector2 = aiming_unit.position
+	if pitch != null:
+		var team_units: Array = pitch.all_units_a if aiming_unit.team == "A" else pitch.all_units_b
+		for u in team_units:
+			if u.role == "goalie":
+				goalie_pos = u.position
+				break
+
+	# Move crosshair toward goalie, clamped to RADIUS_OUTER
+	var dir: Vector2 = (goalie_pos - aiming_unit.position)
+	if dir.length() > RADIUS_OUTER:
+		dir = dir.normalized() * RADIUS_OUTER
+	var target: Vector2 = aiming_unit.position + dir
+	target.x = clamp(target.x, 50.0, 2350.0)
+	target.y = clamp(target.y, 50.0, 850.0)
+	position = position.move_toward(target, MOVE_SPEED * delta)
+
+func _check_ai_launch(delta: float) -> void:
+	ai_aim_timer += delta
+	if ai_aim_timer < 1.0:
+		return
+
+	# Launch when runner is the closest unit to the crosshair,
+	# or immediately if there is no runner (fallback).
+	if pitch == null:
+		_start_countdown()
+		return
+
+	var runner: Node2D = pitch.runner
+	if runner == null:
+		_start_countdown()
+		return
+
+	# Find closest non-goalie unit to crosshair among all units
+	var all_units: Array = pitch.all_units_a + pitch.all_units_b
+	var closest: Node2D = null
+	var closest_dist: float = INF
+	for u in all_units:
+		if u.role == "goalie":
+			continue
+		var d: float = u.position.distance_to(position)
+		if d < closest_dist:
+			closest_dist = d
+			closest = u
+
+	if closest == runner:
+		_start_countdown()
 
 func _update_zone() -> void:
 	var dist: float = position.distance_to(aiming_unit.position)
