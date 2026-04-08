@@ -54,12 +54,32 @@ func _start_round() -> void:
 	paddle_left.set_paddle_color(_get_team_color("A"))
 	paddle_right.set_paddle_color(_get_team_color("B"))
 
+	var left_label: String = ""
+	if left_input_id != "":
+		var n: int = _get_player_num_for_input(left_input_id)
+		if n > 0:
+			left_label = "P" + str(n)
+	paddle_left.set_player_label(left_label)
+
+	var right_label: String = ""
+	if right_input_id != "":
+		var n: int = _get_player_num_for_input(right_input_id)
+		if n > 0:
+			right_label = "P" + str(n)
+	paddle_right.set_player_label(right_label)
+
 	await get_tree().create_timer(1.0).timeout
 	ball.launch()
 	paddle_left.activate()
 	paddle_right.activate()
 
 	$SubViewportContainer/SubViewport.handle_input_locally = false
+
+func _get_player_num_for_input(input_id: String) -> int:
+	for i in range(GameState.players.size()):
+		if GameState.players[i]["input_id"] == input_id:
+			return i + 1
+	return 0
 
 func _setup_paddle(paddle: Area2D, input_id: String) -> void:
 	if input_id == "":

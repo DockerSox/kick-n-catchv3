@@ -117,3 +117,17 @@ func _update_arrow() -> void:
 
 	$ArrowLeft.points = [tip, left_barb]
 	$ArrowRight.points = [tip, right_barb]
+
+func set_player_label(text: String) -> void:
+	var lbl: Label = get_node_or_null("PlayerLabel")
+	if lbl == null:
+		lbl = Label.new()
+		lbl.name = "PlayerLabel"
+		lbl.add_theme_font_size_override("font_size", 16)
+		lbl.add_theme_color_override("font_color", Color.WHITE)
+		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lbl.position = Vector2(-20.0, -30.0)
+		lbl.size = Vector2(70.0, 20.0)
+		add_child(lbl)
+	lbl.text = text
+	lbl.visible = text != ""
