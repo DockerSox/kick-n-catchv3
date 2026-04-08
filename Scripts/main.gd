@@ -108,12 +108,10 @@ func _try_again() -> void:
 func _on_paddle_hit(area: Area2D) -> void:
 	if game_over:
 		return
-	var attacking: String = GameState.attacking_team if GameState.attacking_team != "" else "A"
-	var defending: String = "B" if attacking == "A" else "A"
 	if area == paddle_left:
-		_end_game(attacking)
+		_end_game("A")
 	elif area == paddle_right:
-		_end_game(defending)
+		_end_game("B")
 
 func _end_game(winner: String) -> void:
 	if game_over:

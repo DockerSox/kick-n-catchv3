@@ -169,3 +169,4 @@ func _register_global() -> void:
 	_add_key("Pause", KEY_ESCAPE)
 	for i in range(8):
 		_add_joy_button("Pause", i, JOY_BUTTON_BACK)
+		_add_joy_button("Pause", i, JOY_BUTTON_START)

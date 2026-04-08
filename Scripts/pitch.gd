@@ -91,24 +91,23 @@ func _ready() -> void:
 		_assign_units_to_players_kickoff()
 
 		if GameState.contest_reason == "clash" or GameState.contest_reason == "no_unit":
-			# Reposition contest winner to crosshair area and override their map entry
 			if GameState.contest_player_index >= 0 and \
-			   GameState.contest_player_index < GameState.players.size():
+				GameState.contest_player_index < GameState.players.size():
 				var cp = GameState.players[GameState.contest_player_index]
-				var winning_units: Array = all_units_a if attacking_team == "A" else all_units_b
-				var nearest: Node2D = _nearest_unit_to(winning_units, GameState.contest_crosshair_pos, true)
-				if nearest != null:
-					cp["unit_role"] = nearest.role
-					nearest.position = _safe_resolve_position(GameState.contest_crosshair_pos)
-					player_unit_map[cp["input_id"]] = nearest
+				if cp["team"] == attacking_team:
+					var winning_units: Array = all_units_a if attacking_team == "A" else all_units_b
+					var nearest: Node2D = _nearest_unit_to(winning_units, GameState.contest_crosshair_pos, true)
+					if nearest != null:
+						cp["unit_role"] = nearest.role
+						nearest.position = _safe_resolve_position(GameState.contest_crosshair_pos)
+						player_unit_map[cp["input_id"]] = nearest
 
-			# Reposition nearest losing unit to crosshair area
 			var losing_units: Array = all_units_b if attacking_team == "A" else all_units_a
 			var nearest_loser: Node2D = _nearest_unit_to(losing_units, GameState.contest_crosshair_pos, true)
 			if nearest_loser != null:
 				nearest_loser.position = _safe_resolve_position(GameState.contest_crosshair_pos)
 
-			# Aimer is human unit nearest to crosshair pos
+			last_resolve_pos = GameState.contest_crosshair_pos
 			var contest_aimer: Node2D = _get_human_unit_for_aiming(attacking_team, GameState.contest_crosshair_pos)
 			if contest_aimer == null:
 				contest_aimer = _get_centre_unit(attacking_team)
@@ -188,6 +187,16 @@ func _create_off_screen_arrows() -> void:
 # ---------------------------------------------------------------------------
 # Private helpers — player / unit mapping
 # ---------------------------------------------------------------------------
+
+func _refresh_player_labels() -> void:
+	for unit in all_units_a + all_units_b:
+		unit.set_player_label("")
+	for p in GameState.players:
+		var unit: Node2D = player_unit_map.get(p["input_id"], null)
+		if unit == null:
+			continue
+		var player_num: int = _get_player_num_for_input(p["input_id"])
+		unit.set_player_label("P" + str(player_num))
 
 func _assign_units_to_players_kickoff() -> void:
 	# If players already have unit_role assignments, preserve them and just
@@ -413,40 +422,33 @@ func _assign_defenders() -> void:
 	)
 
 	if GameState.contest_reason == "kickoff":
-		# After kickoff or post-goal: defending centre unit is the marker
+		# After kickoff or post-goal: defending centre unit is the marker.
+		# If centre is human-controlled, fall back to nearest AI unit.
 		for unit in defending_units:
 			if unit.role == "centre":
-				marker_defender = unit
+				if not _is_unit_human_controlled(unit):
+					marker_defender = unit
 				break
+		if marker_defender == null:
+			var marker_dist: float = INF
+			for unit in defending_units_no_goalie:
+				if _is_unit_human_controlled(unit):
+					continue
+				var d: float = unit.position.distance_to(aiming_unit.position)
+				if d < marker_dist:
+					marker_dist = d
+					marker_defender = unit
 	else:
 		# After clash, no_unit, or possession change:
-		# defending unit nearest the last resolve position is the marker
+		# nearest AI unit to last resolve position is the marker.
 		var marker_dist: float = INF
 		for unit in defending_units_no_goalie:
+			if _is_unit_human_controlled(unit):
+				continue
 			var d: float = unit.position.distance_to(last_resolve_pos)
 			if d < marker_dist:
 				marker_dist = d
 				marker_defender = unit
-
-	# If the chosen marker is human-controlled and there are spare AI units,
-	# shift that human's control to another non-goalie AI unit on their team
-	if marker_defender != null and _is_unit_human_controlled(marker_defender):
-		var defending_players_count: int = GameState.get_players_on_team(
-			"B" if attacking_team == "A" else "A"
-		).size()
-		var ai_alternatives: Array = defending_units_no_goalie.filter(
-			func(u): return u != marker_defender and not _is_unit_human_controlled(u)
-		)
-		if defending_players_count < 4 and ai_alternatives.size() > 0:
-			# Shift the human to the first available AI unit
-			var input_id: String = _get_input_id_for_unit(marker_defender)
-			var new_unit: Node2D = ai_alternatives[0]
-			for p in GameState.players:
-				if p["input_id"] == input_id:
-					p["unit_role"] = new_unit.role
-					player_unit_map[input_id] = new_unit
-					break
-			# marker_defender stays as the original unit (now AI-controlled)
 
 	if marker_defender != null:
 		var defending_direction: float = -1.0 if attacking_team == "A" else 1.0
@@ -483,9 +485,9 @@ func _assign_defenders() -> void:
 		unit.set_as_defender(null, true,
 			actions["up"], actions["down"],
 			actions["left"], actions["right"], 0.0)
-		unit.set_human_defender_highlight(true)
 
 	_assign_attack_movement()
+	_refresh_player_labels()
 
 func _assign_attack_movement() -> void:
 	var attacking_units: Array = all_units_a if attacking_team == "A" else all_units_b

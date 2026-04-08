@@ -24,13 +24,11 @@ var runner_reached_timer: float = 0.0
 var runner_timed_out: bool = false
 var mark_delay_timer: float = 0.0
 
-# Defend input actions (human defender)
 var defend_up: String = ""
 var defend_down: String = ""
 var defend_left: String = ""
 var defend_right: String = ""
 
-# Attack input actions (human attacker)
 var attack_up: String = ""
 var attack_down: String = ""
 var attack_left: String = ""
@@ -45,18 +43,21 @@ const DEFEND_SPEED: float = 150.0
 
 @onready var color_rect: ColorRect = $ColorRect
 @onready var name_label: Label = $NameLabel
-@onready var border: ColorRect = $Border
 
 func _ready() -> void:
 	color_rect.color = unit_color
-	name_label.text = role.substr(0, 2).to_upper()
-	border.visible = false
+	name_label.text = ""
+	name_label.visible = false
+
+func set_player_label(text: String) -> void:
+	name_label.text = text
+	name_label.visible = text != ""
 
 func _physics_process(delta: float) -> void:
 	if role == "goalie":
 		return
 	if is_aiming:
-		return  # aiming unit is always immobile
+		return
 	if mark_delay_timer > 0.0:
 		mark_delay_timer -= delta
 		return
@@ -72,17 +73,12 @@ func _physics_process(delta: float) -> void:
 	if attack_role != AttackRole.NONE:
 		_handle_attack_movement(delta)
 
-# ---------------------------------------------------------------------------
-# Public setters
-# ---------------------------------------------------------------------------
-
 func set_as_aiming(value: bool) -> void:
 	is_aiming = value
 	is_defending = false
 	human_defending = false
 	human_attacking = false
 	attack_role = AttackRole.NONE
-	border.visible = false
 	if value:
 		color_rect.color = unit_color.lightened(0.3)
 	else:
@@ -104,7 +100,6 @@ func set_as_human_attacker(up: String, down: String, left: String, right: String
 	human_attacking = true
 	attack_role = AttackRole.NONE
 	is_defending = false
-	border.visible = false
 	attack_up = up
 	attack_down = down
 	attack_left = left
@@ -122,24 +117,19 @@ func set_attack_role(new_role: AttackRole, target: Vector2) -> void:
 	attack_target = target
 	is_defending = false
 	human_attacking = false
-	border.visible = false
 	runner_reached = false
 	runner_timed_out = false
 	runner_timer = 0.0
 	runner_reached_timer = 0.0
 
-func set_human_defender_highlight(value: bool) -> void:
-	border.visible = value
+func set_human_defender_highlight(_value: bool) -> void:
+	pass
 
 func start_mark_delay(delay: float) -> void:
 	mark_delay_timer = delay
 
 func update_runner_target(target: Vector2) -> void:
 	attack_target = target
-
-# ---------------------------------------------------------------------------
-# Movement handlers
-# ---------------------------------------------------------------------------
 
 func _handle_attack_movement(delta: float) -> void:
 	match attack_role:
