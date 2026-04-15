@@ -4,6 +4,7 @@
 [ext_resource type="PackedScene" uid="uid://ccjof2rady12g" path="res://Scenes/unit.tscn" id="1_p7quv"]
 [ext_resource type="Texture2D" uid="uid://tqecgbowq0ck" path="res://Assets/without goals.png" id="2_2k2j8"]
 [ext_resource type="PackedScene" uid="uid://dy2hpnvp2c4tu" path="res://Scenes/crosshair.tscn" id="3_qkjbr"]
+[ext_resource type="PackedScene" uid="uid://cnb1glx5mfut7" path="res://Scenes/pitch_ball.tscn" id="4_2fip6"]
 
 [node name="Pitch" type="Node2D" unique_id=1118211447]
 script = ExtResource("1_2dmjp")
@@ -93,6 +94,8 @@ position = Vector2(550, 450)
 team = "B"
 role = "defence"
 unit_color = Color(0.8, 0.26666668, 0.8, 1)
+
+[node name="PitchBall" parent="." unique_id=86901173 instance=ExtResource("4_2fip6")]
 
 [node name="Crosshair" parent="." unique_id=402353958 instance=ExtResource("3_qkjbr")]
 

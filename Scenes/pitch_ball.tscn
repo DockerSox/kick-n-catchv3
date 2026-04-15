@@ -1,0 +1,14 @@
+[gd_scene format=3 uid="uid://cnb1glx5mfut7"]
+
+[ext_resource type="Script" uid="uid://se4l0xfy7ykv" path="res://Scripts/pitch_ball.gd" id="1_r3jux"]
+
+[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_l0fx3"]
+size = Vector2(16, 16)
+
+[node name="PitchBall" type="Node2D" unique_id=86901173]
+script = ExtResource("1_r3jux")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1546256230]
+texture = SubResource("PlaceholderTexture2D_l0fx3")
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=895307624]

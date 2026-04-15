@@ -13,6 +13,7 @@ extends Node2D
 @onready var match_end_label: Label = $UI/MatchEndLabel
 @onready var defender_arrow: Label = $UI/DefenderArrow
 @onready var goal_label: Label = $UI/GoalLabel
+@onready var pitch_ball: Node2D = $PitchBall
 
 var attacking_team: String = "A"
 var aiming_unit: Node2D = null
@@ -121,6 +122,7 @@ func _ready() -> void:
 
 		update_score()
 		_update_goal_arrow()
+		pitch_ball.attach_to_unit(aiming_unit, crosshair.position)
 		return
 
 	# Direct load (fresh game start — should not normally occur)
@@ -145,6 +147,8 @@ func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("Pause"):
 		_on_pause()
 	_update_off_screen_arrows()
+	if not kick_in_progress and aiming_unit != null:
+		pitch_ball.attach_to_unit(aiming_unit, crosshair.position)
 
 # ---------------------------------------------------------------------------
 # Private helpers — setup
@@ -725,6 +729,7 @@ func _update_goal_arrow() -> void:
 		arrow_right.add_theme_color_override("font_color", attacking_color)
 
 func _score_goal(team: String) -> void:
+	pitch_ball.land()
 	if team == "A":
 		GameState.score_a += 1
 	else:
@@ -911,6 +916,8 @@ func on_kick_resolved(winning_team: String, resolve_position: Vector2, is_goal: 
 	var nearest: Node2D = _nearest_unit_to(winning_units, resolve_position, true)
 	if nearest == null:
 		nearest = _get_centre_unit(winning_team)
+	
+	nearest.position = _safe_resolve_position(resolve_position)
 
 	var winning_players: Array = GameState.get_players_on_team(winning_team)
 
@@ -927,6 +934,7 @@ func on_kick_resolved(winning_team: String, resolve_position: Vector2, is_goal: 
 	set_aiming_unit(new_aimer)
 
 func on_kick_launched(kick_pos: Vector2) -> void:
+	pitch_ball.launch(aiming_unit.position, kick_pos, crosshair.COUNTDOWN_TIME[crosshair.current_zone], crosshair.current_zone)
 	kick_in_progress = true
 
 	GameState.contest_player_index = _get_player_index_for_unit(aiming_unit)
