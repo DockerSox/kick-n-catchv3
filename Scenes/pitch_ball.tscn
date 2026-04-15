@@ -8,7 +8,21 @@ size = Vector2(16, 16)
 [node name="PitchBall" type="Node2D" unique_id=86901173]
 script = ExtResource("1_r3jux")
 
+[node name="ColorRect" type="ColorRect" parent="." unique_id=1561418699]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -8.0
+offset_top = -8.0
+offset_right = 8.0
+offset_bottom = 8.0
+grow_horizontal = 2
+grow_vertical = 2
+
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=1546256230]
+visible = false
 texture = SubResource("PlaceholderTexture2D_l0fx3")
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=895307624]
