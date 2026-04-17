@@ -63,10 +63,15 @@ func _ready() -> void:
 	all_units_a = units_a.get_children()
 	all_units_b = units_b.get_children()
 
-	for unit in all_units_a:
-		unit.position = POSITIONS_A.get(unit.role, Vector2(1200, 450))
-	for unit in all_units_b:
-		unit.position = POSITIONS_B.get(unit.role, Vector2(1200, 450))
+	if GameState.return_scene != "res://Scenes/pitch.tscn" or GameState.contest_reason == "kickoff":
+		for unit in all_units_a:
+			unit.position = POSITIONS_A.get(unit.role, Vector2(1200, 450))
+		for unit in all_units_b:
+			unit.position = POSITIONS_B.get(unit.role, Vector2(1200, 450))
+	else:
+		for unit in all_units_a + all_units_b:
+			if GameState.saved_unit_positions.has(unit.name):
+				unit.position = GameState.saved_unit_positions[unit.name]
 
 	_set_goalie_bounds()
 	_set_forbidden_zones()
@@ -86,22 +91,30 @@ func _ready() -> void:
 		attacking_team = GameState.contest_winner if GameState.contest_winner != "" else "A"
 		GameState.attacking_team = attacking_team
 
-		# Always do a full role assignment first so player_unit_map is complete.
-		# This is safe to call every time — it uses stored unit_role strings if
-		# they exist, and shuffles fresh ones if they don't.
 		_assign_units_to_players_kickoff()
 
 		if GameState.contest_reason == "clash" or GameState.contest_reason == "no_unit":
-			if GameState.contest_player_index >= 0 and \
-				GameState.contest_player_index < GameState.players.size():
-				var cp = GameState.players[GameState.contest_player_index]
-				if cp["team"] == attacking_team:
-					var winning_units: Array = all_units_a if attacking_team == "A" else all_units_b
-					var nearest: Node2D = _nearest_unit_to(winning_units, GameState.contest_crosshair_pos, true)
-					if nearest != null:
-						cp["unit_role"] = nearest.role
-						nearest.position = _safe_resolve_position(GameState.contest_crosshair_pos)
-						player_unit_map[cp["input_id"]] = nearest
+			var winning_units: Array = all_units_a if attacking_team == "A" else all_units_b
+			var nearest: Node2D = _nearest_unit_to(winning_units, GameState.contest_crosshair_pos, true)
+			if nearest == null:
+				nearest = _get_centre_unit(attacking_team)
+			nearest.position = _safe_resolve_position(GameState.contest_crosshair_pos)
+
+			var winning_players: Array = GameState.get_players_on_team(attacking_team)
+			if winning_players.size() > 0:
+				var best_p = winning_players[0]
+				if winning_players.size() > 1:
+					var best_dist: float = INF
+					for p in winning_players:
+						var u: Node2D = player_unit_map.get(p["input_id"], null)
+						if u == null:
+							continue
+						var d: float = u.position.distance_to(GameState.contest_crosshair_pos)
+						if d < best_dist:
+							best_dist = d
+							best_p = p
+				best_p["unit_role"] = nearest.role
+				player_unit_map[best_p["input_id"]] = nearest
 
 			var losing_units: Array = all_units_b if attacking_team == "A" else all_units_a
 			var nearest_loser: Node2D = _nearest_unit_to(losing_units, GameState.contest_crosshair_pos, true)
@@ -109,10 +122,7 @@ func _ready() -> void:
 				nearest_loser.position = _safe_resolve_position(GameState.contest_crosshair_pos)
 
 			last_resolve_pos = GameState.contest_crosshair_pos
-			var contest_aimer: Node2D = _get_human_unit_for_aiming(attacking_team, GameState.contest_crosshair_pos)
-			if contest_aimer == null:
-				contest_aimer = _get_centre_unit(attacking_team)
-			set_aiming_unit(contest_aimer)
+			set_aiming_unit(nearest)
 		else:
 			var kickoff_centre: Node2D = _get_centre_unit(attacking_team)
 			var kickoff_aimer: Node2D = _get_human_unit_for_aiming(attacking_team, kickoff_centre.position)
@@ -125,7 +135,6 @@ func _ready() -> void:
 		pitch_ball.attach_to_unit(aiming_unit, crosshair.position)
 		return
 
-	# Direct load (fresh game start — should not normally occur)
 	attacking_team = GameState.attacking_team if GameState.attacking_team != "" else "A"
 	_assign_units_to_players_kickoff()
 	var centre_unit: Node2D = _get_centre_unit(attacking_team)

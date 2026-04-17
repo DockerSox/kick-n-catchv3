@@ -8,6 +8,7 @@ var contest_winner: String = ""
 var return_scene: String = ""
 var contest_reason: String = ""
 var contest_crosshair_pos: Vector2 = Vector2.ZERO
+var saved_unit_positions: Dictionary = {}
 
 # Array of Dictionaries, one per human player, in join order.
 # Each dict: { "input_id": String, "team": String, "unit_role": String }

@@ -266,12 +266,14 @@ func _resolve_kick() -> void:
 		_no_unit_resolution(position)
 
 func _trigger_contest(pos: Vector2) -> void:
+	_save_unit_positions()
 	GameState.return_scene = "res://Scenes/pitch.tscn"
 	GameState.contest_reason = "clash"
 	GameState.contest_crosshair_pos = pos
 	GameState.go_to_scene("res://Scenes/main.tscn")
 
 func _no_unit_resolution(pos: Vector2) -> void:
+	_save_unit_positions()
 	GameState.return_scene = "res://Scenes/pitch.tscn"
 	GameState.contest_reason = "no_unit"
 	GameState.contest_crosshair_pos = pos
@@ -288,3 +290,10 @@ func _draw_circle(line: Line2D, radius: float) -> void:
 func _draw_crosshair_lines() -> void:
 	line_h.points = [Vector2(-CROSSHAIR_RADIUS, 0), Vector2(CROSSHAIR_RADIUS, 0)]
 	line_v.points = [Vector2(0, -CROSSHAIR_RADIUS), Vector2(0, CROSSHAIR_RADIUS)]
+
+func _save_unit_positions() -> void:
+	GameState.saved_unit_positions = {}
+	if pitch == null:
+		return
+	for unit in pitch.all_units_a + pitch.all_units_b:
+		GameState.saved_unit_positions[unit.name] = unit.position
