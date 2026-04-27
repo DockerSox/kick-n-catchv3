@@ -1,5 +1,7 @@
 extends Area2D
 
+# Add "CONTEST!" text to this event
+
 @export var move_left_action: String = ""
 @export var move_right_action: String = ""
 @export var launch_action: String = ""
