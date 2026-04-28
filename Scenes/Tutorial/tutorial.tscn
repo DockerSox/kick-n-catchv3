@@ -1,0 +1,121 @@
+[gd_scene format=3 uid="uid://dxlrhdaa0je47"]
+
+[ext_resource type="Script" uid="uid://pudpnyifvisx" path="res://Scripts/Tutorial/tutorial_controller.gd" id="1_oc6bj"]
+[ext_resource type="Texture2D" uid="uid://bqvklydvdaxd8" path="res://Assets/mowing only.png" id="2_tvnyb"]
+[ext_resource type="PackedScene" uid="uid://ccjof2rady12g" path="res://Scenes/unit.tscn" id="3_6w3qm"]
+[ext_resource type="PackedScene" uid="uid://cnb1glx5mfut7" path="res://Scenes/pitch_ball.tscn" id="4_tvnyb"]
+[ext_resource type="PackedScene" uid="uid://cyo48ywpvmd2i" path="res://Scenes/Tutorial/tutorial_crosshair.tscn" id="5_6w3qm"]
+[ext_resource type="PackedScene" uid="uid://cuircqiqq3p7o" path="res://Scenes/Tutorial/tutorial_ui.tscn" id="6_tvnyb"]
+
+[node name="Tutorial" type="Node2D" unique_id=1016631493]
+script = ExtResource("1_oc6bj")
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=655499652]
+position = Vector2(1200, 450)
+zoom = Vector2(1.2, 1.2)
+
+[node name="PitchBackground" type="ColorRect" parent="." unique_id=467279533]
+offset_right = 2400.0
+offset_bottom = 900.0
+color = Color(0.1764706, 0.3529412, 0.105882354, 1)
+
+[node name="PitchLines" type="Sprite2D" parent="." unique_id=989843638]
+texture_repeat = 2
+position = Vector2(1200, 450)
+texture = ExtResource("2_tvnyb")
+region_enabled = true
+region_rect = Rect2(0, 0, 6000, 900)
+
+[node name="UnitsA" type="Node2D" parent="." unique_id=68579482]
+
+[node name="Holder" parent="UnitsA" unique_id=253754495 instance=ExtResource("3_6w3qm")]
+position = Vector2(1200, 450)
+unit_color = Color(0.41568628, 0.050980393, 0.6784314, 1)
+
+[node name="Teammate" parent="UnitsA" unique_id=853842140 instance=ExtResource("3_6w3qm")]
+position = Vector2(1500, 450)
+unit_color = Color(0.41568628, 0.050980393, 0.6784314, 1)
+
+[node name="UnitsB" type="Node2D" parent="." unique_id=519613964]
+
+[node name="PitchBall" parent="." unique_id=86901173 instance=ExtResource("4_tvnyb")]
+
+[node name="TutorialCrosshair" parent="." unique_id=211057471 instance=ExtResource("5_6w3qm")]
+
+[node name="TutorialUI" parent="." unique_id=1580704814 instance=ExtResource("6_tvnyb")]
+
+[node name="UIRoot" type="CanvasLayer" parent="." unique_id=982524668]
+
+[node name="WhiteOverlay" type="ColorRect" parent="UIRoot" unique_id=470902227]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="PauseMenu" type="Control" parent="UIRoot" unique_id=182789308]
+process_mode = 3
+visible = false
+layout_mode = 3
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="ColorRect" type="ColorRect" parent="UIRoot/PauseMenu" unique_id=338041942]
+layout_mode = 0
+offset_right = 1280.0
+offset_bottom = 720.0
+color = Color(0, 0, 0, 0.42745098)
+
+[node name="Label" type="Label" parent="UIRoot/PauseMenu" unique_id=905452216]
+layout_mode = 0
+offset_left = 140.0
+offset_top = 120.0
+offset_right = 387.0
+offset_bottom = 208.0
+theme_override_colors/font_color = Color(0.9764706, 0.25490198, 0.27058825, 1)
+theme_override_font_sizes/font_size = 64
+text = "PAUSED"
+
+[node name="ResumeButton" type="Button" parent="UIRoot/PauseMenu" unique_id=1721802444]
+process_mode = 3
+layout_mode = 0
+offset_left = 140.0
+offset_top = 280.0
+offset_right = 339.0
+offset_bottom = 355.0
+theme_override_font_sizes/font_size = 48
+text = "RESUME"
+flat = true
+
+[node name="OptionsButton" type="Button" parent="UIRoot/PauseMenu" unique_id=719189393]
+process_mode = 3
+layout_mode = 0
+offset_left = 140.0
+offset_top = 360.0
+offset_right = 359.0
+offset_bottom = 435.0
+theme_override_font_sizes/font_size = 48
+text = "OPTIONS"
+flat = true
+
+[node name="MainMenuButton" type="Button" parent="UIRoot/PauseMenu" unique_id=1858931423]
+layout_mode = 0
+offset_left = 140.0
+offset_top = 440.0
+offset_right = 433.0
+offset_bottom = 515.0
+theme_override_font_sizes/font_size = 48
+text = "MAIN MENU"
+flat = true
+
+[node name="QuitButton" type="Button" parent="UIRoot/PauseMenu" unique_id=2053305885]
+process_mode = 3
+layout_mode = 0
+offset_left = 140.0
+offset_top = 520.0
+offset_right = 263.0
+offset_bottom = 595.0
+theme_override_font_sizes/font_size = 48
+text = "QUIT"
+flat = true

@@ -25,6 +25,9 @@ func _ready() -> void:
 	start_label.visible = false
 
 func _process(delta: float) -> void:
+	if Input.is_action_just_pressed("Pause"):
+		GameState.go_to_scene("res://Scenes/title.tscn")
+		return
 	_poll_all_inputs()
 	if counting_down:
 		countdown_timer -= delta

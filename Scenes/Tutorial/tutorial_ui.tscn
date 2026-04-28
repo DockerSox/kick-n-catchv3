@@ -1,0 +1,59 @@
+[gd_scene format=3 uid="uid://cuircqiqq3p7o"]
+
+[ext_resource type="Script" uid="uid://dymlsoh06fo2o" path="res://Scripts/Tutorial/tutorial_ui.gd" id="1_mnq53"]
+
+[node name="TutorialUI" type="CanvasLayer" unique_id=1580704814]
+script = ExtResource("1_mnq53")
+
+[node name="InstructionalText" type="Label" parent="." unique_id=272168718]
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 40.0
+offset_bottom = 180.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(1, 1, 1, 0.78431374)
+theme_override_font_sizes/font_size = 48
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="GlyphLabel" type="Label" parent="." unique_id=527951252]
+custom_minimum_size = Vector2(200, 70)
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -740.0
+offset_top = -840.0
+offset_right = -540.0
+offset_bottom = -770.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 32
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="MomentText" type="Label" parent="." unique_id=1680688606]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 120
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="LogText" type="Label" parent="." unique_id=1990288314]
+visible = false
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 120.0
+offset_bottom = 143.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(1, 1, 1, 0.5882353)
+theme_override_font_sizes/font_size = 32
+horizontal_alignment = 1
+vertical_alignment = 1

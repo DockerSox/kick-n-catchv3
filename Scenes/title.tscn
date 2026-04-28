@@ -28,21 +28,33 @@ text = "KICK 'N' CATCH"
 [node name="PlayButton" type="Button" parent="." unique_id=1268883919]
 layout_mode = 0
 offset_left = 152.0
-offset_top = 303.0
+offset_top = 300.0
 offset_right = 276.0
-offset_bottom = 378.0
+offset_bottom = 375.0
 theme_override_colors/font_color = Color(0.875, 0.875, 0.875, 1)
 theme_override_colors/font_focus_color = Color(0.9764706, 0.25490198, 0.27058825, 1)
 theme_override_font_sizes/font_size = 48
 text = "PLAY"
 flat = true
 
+[node name="TutorialButton" type="Button" parent="." unique_id=456970227]
+layout_mode = 0
+offset_left = 152.0
+offset_top = 370.0
+offset_right = 391.0
+offset_bottom = 445.0
+theme_override_colors/font_color = Color(0.875, 0.875, 0.875, 1)
+theme_override_colors/font_focus_color = Color(0.9764706, 0.25490198, 0.27058825, 1)
+theme_override_font_sizes/font_size = 48
+text = "TUTORIAL"
+flat = true
+
 [node name="OptionsButton" type="Button" parent="." unique_id=432589746]
 layout_mode = 0
 offset_left = 152.0
-offset_top = 383.0
+offset_top = 440.0
 offset_right = 371.0
-offset_bottom = 458.0
+offset_bottom = 515.0
 theme_override_colors/font_color = Color(0.875, 0.875, 0.875, 1)
 theme_override_colors/font_focus_color = Color(0.9764706, 0.25490198, 0.27058825, 1)
 theme_override_font_sizes/font_size = 48
@@ -52,9 +64,9 @@ flat = true
 [node name="ExitButton" type="Button" parent="." unique_id=1816001557]
 layout_mode = 0
 offset_left = 152.0
-offset_top = 463.0
+offset_top = 510.0
 offset_right = 258.0
-offset_bottom = 538.0
+offset_bottom = 585.0
 theme_override_colors/font_color = Color(0.875, 0.875, 0.875, 1)
 theme_override_colors/font_focus_color = Color(0.9764706, 0.25490198, 0.27058825, 1)
 theme_override_font_sizes/font_size = 48

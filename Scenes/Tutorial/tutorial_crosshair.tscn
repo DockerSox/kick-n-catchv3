@@ -1,0 +1,37 @@
+[gd_scene format=3 uid="uid://cyo48ywpvmd2i"]
+
+[ext_resource type="Script" uid="uid://c3ifj70685hp2" path="res://Scripts/Tutorial/tutorial_crosshair.gd" id="1_opfk6"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_opfk6"]
+radius = 25.0
+
+[node name="TutorialCrosshair" type="Node2D" unique_id=211057471]
+script = ExtResource("1_opfk6")
+
+[node name="Circle" type="Line2D" parent="." unique_id=1695567174]
+width = 4.0
+
+[node name="CrosshairLines" type="Node2D" parent="." unique_id=2012746800]
+
+[node name="LineH" type="Line2D" parent="CrosshairLines" unique_id=347584958]
+width = 4.0
+
+[node name="LineV" type="Line2D" parent="CrosshairLines" unique_id=2132402791]
+width = 4.0
+
+[node name="CountdownLabel" type="Label" parent="." unique_id=207024262]
+custom_minimum_size = Vector2(30, 50)
+offset_left = -15.0
+offset_top = -25.0
+offset_right = 25.0
+offset_bottom = -2.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 36
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Area2D" type="Area2D" parent="." unique_id=1978504602]
+visible = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D" unique_id=1389368474]
+shape = SubResource("CircleShape2D_opfk6")

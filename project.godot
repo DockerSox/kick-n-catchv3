@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Kick'n'Catch (Assisted)"
-run/main_scene="uid://bww8g7i1bibly"
+run/main_scene="uid://cv2btj4wjvc8w"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
 
@@ -19,6 +19,7 @@ config/icon="res://icon.svg"
 
 GameState="*uid://bbxapcos8s0fs"
 InputManager="*uid://govcivlwmh1m"
+Settings="*uid://blbbve1l2jb6g"
 
 [display]
 

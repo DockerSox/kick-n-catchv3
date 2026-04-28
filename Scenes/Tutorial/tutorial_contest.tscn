@@ -1,11 +1,11 @@
-[gd_scene format=3 uid="uid://c2cf6dn10wb45"]
+[gd_scene format=3 uid="uid://dqiybna7j54s5"]
 
-[ext_resource type="Script" uid="uid://bgxlcjxvkct4" path="res://Scripts/main.gd" id="1_8gbba"]
-[ext_resource type="PackedScene" uid="uid://b0co02r7b462q" path="res://Scenes/ball.tscn" id="1_bo1nx"]
-[ext_resource type="PackedScene" uid="uid://bf2sb5s8nhfai" path="res://Scenes/contest_unit.tscn" id="2_8gbba"]
+[ext_resource type="Script" uid="uid://ctsne45dx51x4" path="res://Scripts/Tutorial/tutorial_contest.gd" id="1_fkluv"]
+[ext_resource type="PackedScene" uid="uid://bf2sb5s8nhfai" path="res://Scenes/contest_unit.tscn" id="2_7juu4"]
+[ext_resource type="PackedScene" uid="uid://b0co02r7b462q" path="res://Scenes/ball.tscn" id="3_g6ivy"]
 
-[node name="Main" type="Node2D" unique_id=574375206]
-script = ExtResource("1_8gbba")
+[node name="TutorialContest" type="Node2D" unique_id=574375206]
+script = ExtResource("1_fkluv")
 
 [node name="BorderRect" type="ColorRect" parent="." unique_id=2067625843]
 offset_left = 396.0
@@ -30,16 +30,16 @@ offset_right = 460.0
 offset_bottom = 700.0
 color = Color(0.101960786, 0.101960786, 0.101960786, 1)
 
-[node name="Ball" parent="SubViewportContainer/SubViewport" unique_id=385356315 instance=ExtResource("1_bo1nx")]
+[node name="Ball" parent="SubViewportContainer/SubViewport" unique_id=385356315 instance=ExtResource("3_g6ivy")]
 
-[node name="ContestUnitA" parent="SubViewportContainer/SubViewport" unique_id=2132806529 instance=ExtResource("2_8gbba")]
+[node name="ContestUnitA" parent="SubViewportContainer/SubViewport" unique_id=2132806529 instance=ExtResource("2_7juu4")]
 unique_name_in_owner = true
 move_left_action = "p1_left"
 move_right_action = "p1_right"
 launch_action = "p1_launch"
 paddle_color = Color(0.2509804, 0.09019608, 0.47843137, 1)
 
-[node name="ContestUnitB" parent="SubViewportContainer/SubViewport" unique_id=369545063 instance=ExtResource("2_8gbba")]
+[node name="ContestUnitB" parent="SubViewportContainer/SubViewport" unique_id=369545063 instance=ExtResource("2_7juu4")]
 unique_name_in_owner = true
 move_left_action = "p2_left"
 move_right_action = "p2_right"
@@ -58,3 +58,26 @@ theme_override_font_sizes/font_size = 48
 horizontal_alignment = 1
 vertical_alignment = 1
 metadata/_edit_use_anchors_ = true
+
+[node name="RightInstructionText" type="Label" parent="." unique_id=732123473]
+anchors_preset = -1
+offset_left = 880.0
+offset_top = 30.0
+offset_right = 1270.0
+offset_bottom = 700.0
+grow_horizontal = 0
+theme_override_colors/font_color = Color(1, 1, 1, 0.78431374)
+theme_override_font_sizes/font_size = 48
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="LeftInstructionText" type="Label" parent="." unique_id=1538458626]
+anchors_preset = -1
+offset_left = 10.0
+offset_top = 30.0
+offset_right = 400.0
+offset_bottom = 700.0
+theme_override_colors/font_color = Color(1, 1, 1, 0.78431374)
+theme_override_font_sizes/font_size = 48
+horizontal_alignment = 1
+autowrap_mode = 2
