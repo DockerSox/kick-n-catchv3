@@ -207,7 +207,6 @@ func _update_zone() -> void:
 	else:
 		new_zone = 3
 	if zone_flash_enabled and _last_zone_for_flash != -1 and new_zone != _last_zone_for_flash:
-		print("[crosshair] zone change ", _last_zone_for_flash, " -> ", new_zone, " flashing")
 		flash_transition(0.05)
 	_last_zone_for_flash = new_zone
 	current_zone = new_zone

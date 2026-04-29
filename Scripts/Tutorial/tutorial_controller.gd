@@ -136,6 +136,11 @@ var _step8_crosshair_kick_pos: Vector2 = Vector2.ZERO
 var _tutorial_goalie: Node2D = null
 var _tutorial_goal_square: ColorRect = null
 
+# When true, camera position is set EXACTLY to camera_target each frame,
+# bypassing the lerp. Used for step 15's outro where we want the camera
+# locked tightly to the ball.
+var camera_snap_mode: bool = false
+
 # ---------------------------------------------------------------------------
 # Lifecycle
 # ---------------------------------------------------------------------------
@@ -151,14 +156,20 @@ func _input(event: InputEvent) -> void:
  
 func _process(delta: float) -> void:
 	if camera_follow_active:
-		camera.position = camera.position.lerp(camera_target, camera_follow_speed * delta)
-		var vp_size: Vector2 = get_viewport_rect().size
-		var half_w: float = (vp_size.x / 2.0) / camera.zoom.x
-		var half_h: float = (vp_size.y / 2.0) / camera.zoom.y
-		camera.position.x = clamp(camera.position.x,
-			CAMERA_BOUND_LEFT + half_w, CAMERA_BOUND_RIGHT - half_w)
-		camera.position.y = clamp(camera.position.y,
-			CAMERA_BOUND_TOP + half_h, CAMERA_BOUND_BOTTOM - half_h)
+		if camera_snap_mode:
+			# Snap mode: camera is exactly at camera_target, no lerp, no clamp.
+			# Used for step 15 where we want the camera locked tightly to the
+			# ball regardless of pitch bounds.
+			camera.position = camera_target
+		else:
+			camera.position = camera.position.lerp(camera_target, camera_follow_speed * delta)
+			var vp_size: Vector2 = get_viewport_rect().size
+			var half_w: float = (vp_size.x / 2.0) / camera.zoom.x
+			var half_h: float = (vp_size.y / 2.0) / camera.zoom.y
+			camera.position.x = clamp(camera.position.x,
+				CAMERA_BOUND_LEFT + half_w, CAMERA_BOUND_RIGHT - half_w)
+			camera.position.y = clamp(camera.position.y,
+				CAMERA_BOUND_TOP + half_h, CAMERA_BOUND_BOTTOM - half_h)
 
 	# Custom unit movement (bypasses unit.gd's hardcoded pitch bounds).
 	if _tutorial_unit_movement_active and _tutorial_movement_unit != null \
@@ -188,7 +199,11 @@ func _process(delta: float) -> void:
 		if offset.length() > max_radius:
 			offset = offset.normalized() * max_radius
 			_player_unit_to_clamp.position = crosshair.position + offset
- 
+
+	# Step 15 AI per-frame work.
+	if _step15_ai_active and not _step15_kick_in_progress:
+		_step15_check_role_rotation(delta)
+
 # ---------------------------------------------------------------------------
 # Lifecycle-safe await primitives
 # ---------------------------------------------------------------------------
@@ -206,7 +221,8 @@ func _safe_await_frame() -> bool:
  
 # Awaits a SceneTreeTimer. Returns true if still alive after.
 func _safe_await_timer(seconds: float) -> bool:
-	await get_tree().create_timer(seconds).timeout
+	# create_timer(time, process_always=false) makes it respect tree pause.
+	await get_tree().create_timer(seconds, false).timeout
 	return _is_alive()
  
 # ---------------------------------------------------------------------------
@@ -302,6 +318,8 @@ func _restore_game_state() -> void:
 	GameState.contest_player_index = _saved_state["contest_player_index"]
  
 func _exit_to_title() -> void:
+	# Tutorial has been seen at least once — don't auto-route to it on next launch.
+	Settings.set_tutorial_on_launch(false)
 	_restore_game_state()
 	GameState.go_to_scene("res://Scenes/title.tscn")
  
@@ -338,7 +356,7 @@ func _setup_initial_visual_state() -> void:
 func _run_tutorial() -> void:
 	await _step_01_cinematic_intro()
 	if not _is_alive(): return
-	await _step_02_pause_prompt()
+	_step_02_pause_prompt()
 	if not _is_alive(): return
 	await _step_03_crosshair_movement()
 	if not _is_alive(): return
@@ -354,8 +372,6 @@ func _run_tutorial() -> void:
 	if not _is_alive(): return
 	await _step_09_first_contest()
 	if not _is_alive(): return
-	await _step_10_no_one_contest_text()
-	if not _is_alive(): return
 	await _step_11_goalie_intro()
 	if not _is_alive(): return
 	await _step_12_goalie_kick()
@@ -363,7 +379,9 @@ func _run_tutorial() -> void:
 	await _step_13_formation_reveal()
 	if not _is_alive(): return
 	await _step_14_restart_contest()
- 
+	if not _is_alive(): return
+	await _step_15_tactical_demo()
+
 # ---------------------------------------------------------------------------
 # STEP 1 — Cinematic intro
 # ---------------------------------------------------------------------------
@@ -404,11 +422,9 @@ func _reveal_holder_label() -> void:
 # STEP 2 — Pause prompt
 # ---------------------------------------------------------------------------
 func _step_02_pause_prompt() -> void:
-	ui.show_instruction("PRESS START TO PAUSE AND ADJUST SETTINGS", GLYPH_START)
-	if not await _safe_await_timer(2.5): return
-	await ui.hide_instruction()
-	if not _is_alive(): return
-	await _safe_await_timer(0.3)
+	# Set "PRESS START TO PAUSE" directly as a log entry. It's informational,
+	# no required action. No timer, no time-lock — step 3 begins immediately.
+	ui.set_log("PRESS START TO PAUSE AND ADJUST SETTINGS")
  
 # ---------------------------------------------------------------------------
 # STEP 3 — Crosshair movement
@@ -421,25 +437,27 @@ func _step_02_pause_prompt() -> void:
 # ---------------------------------------------------------------------------
 func _step_03_crosshair_movement() -> void:
 	var holder: Node2D = units_a.get_node_or_null("Holder")
-	if holder == null:
+	var teammate: Node2D = units_a.get_node_or_null("Teammate")
+	if holder == null or teammate == null:
 		return
- 
+
 	crosshair.activate(holder, TUTORIAL_INPUT_ID)
 	crosshair.kick_locked = true
- 
+
 	ui.show_instruction("USE THE LEFT THUMBSTICK TO MOVE THE CROSSHAIR", GLYPH_LSTICK)
- 
-	# Wait for first movement, with periodic alive-checks.
+
 	while _is_alive() and not crosshair.has_moved:
 		await get_tree().process_frame
 	if not _is_alive(): return
- 
-	# Linger: keep text visible for 1s after movement starts.
-	if not await _safe_await_timer(STEP3_LINGER_AFTER_MOVE): return
- 
-	await ui.hide_instruction()
-	if not _is_alive(): return
-	await _safe_await_timer(0.2)
+
+	# Unlock the kick AS SOON AS the player has started moving — they
+	# shouldn't have to wait through the text linger to act.
+	crosshair.required_target_unit = teammate
+	crosshair.kick_locked = false
+
+	# Begin the text fade non-blocking, in parallel with step 4 logic.
+	ui.hide_instruction()
+	# No await here — step 4 starts immediately.
  
 # ---------------------------------------------------------------------------
 # STEP 4 — First kick
@@ -460,9 +478,6 @@ func _step_04_first_kick() -> void:
 	var teammate: Node2D = units_a.get_node_or_null("Teammate")
 	if holder == null or teammate == null:
 		return
- 
-	crosshair.required_target_unit = teammate
-	crosshair.kick_locked = false
  
 	# Watch for crosshair-on-teammate or timeout, whichever comes first.
 	var elapsed: float = 0.0
@@ -500,7 +515,7 @@ func _step_04_first_kick() -> void:
 	camera_follow_active = true
 	camera_follow_speed = CAMERA_BALL_FOLLOW_SPEED
  
-	ui.show_moment("NICE KICK!", TEAM_A_COLOR.lightened(0.4), 0.8)
+	ui.show_moment("NICE KICK!", TEAM_A_COLOR.lightened(0.4), 0.8, holder.position)
  
 	# Track ball + countdown in a single polling loop. Exits when both done.
 	# This avoids the kick_resolved signal race.
@@ -517,12 +532,15 @@ func _step_04_first_kick() -> void:
 	pitch_ball.attach_to_unit(teammate, teammate.position + Vector2(-100, 0))
 	camera_target = teammate.position
 	camera_follow_speed = CAMERA_FOLLOW_SPEED
- 
-	await ui.show_moment("NICE CATCH!", TEAM_A_COLOR.lightened(0.4), 1.0)
-	if not _is_alive(): return
- 
+
+	# Re-bind crosshair to the new aimer (teammate) IMMEDIATELY so the player
+	# can move the crosshair while NICE CATCH plays (rather than waiting).
 	holder.set_player_label("")
 	teammate.set_player_label("P1")
+	crosshair.activate_and_position(teammate, TUTORIAL_INPUT_ID)
+
+	await ui.show_moment("NICE CATCH!", TEAM_A_COLOR.lightened(0.4), 1.0, teammate.position)
+	if not _is_alive(): return
  
 	await _safe_await_timer(0.4)
  
@@ -560,7 +578,6 @@ func _flash_unit(unit: Node2D, duration: float = 0.25) -> void:
 # STEP 5 — Cascade: zone-3 → zone-2 → zone-1 kicks with walk-ins
 # ---------------------------------------------------------------------------
 func _step_05_cascade() -> void:
-	print("[step5] start")
 	var teammate: Node2D = units_a.get_node_or_null("Teammate")
 	var holder: Node2D = units_a.get_node_or_null("Holder")
 	if teammate == null:
@@ -590,7 +607,6 @@ func _step_05_cascade() -> void:
 	var t_zone2: Node2D = _spawn_unit(units_a, "Teammate3",
 		Vector2(t_zone2_pos.x - 800.0, t_zone2_pos.y), "A", TEAM_A_COLOR)
  
-	print("[step5] cascade kick 1")
 	await _cascade_kick(teammate, t_zone3, t_zone2, t_zone2_pos)
 	if not _is_alive(): return
  
@@ -598,11 +614,9 @@ func _step_05_cascade() -> void:
 	var t_zone1: Node2D = _spawn_unit(units_a, "Teammate4",
 		Vector2(t_zone1_pos.x - 800.0, t_zone1_pos.y), "A", TEAM_A_COLOR)
  
-	print("[step5] cascade kick 2")
 	await _cascade_kick(t_zone3, t_zone2, t_zone1, t_zone1_pos)
 	if not _is_alive(): return
  
-	print("[step5] cascade kick 3")
 	await _cascade_kick_final(t_zone2, t_zone1)
 	if not _is_alive(): return
  
@@ -628,7 +642,6 @@ func _step_05_cascade() -> void:
 	await ui.hide_instruction()
 	if not _is_alive(): return
 	await _safe_await_timer(0.4)
-	print("[step5] done")
  
 func _cascade_kick(aimer: Node2D, target: Node2D,
 		next_unit: Node2D, next_unit_target: Vector2) -> void:
@@ -745,9 +758,8 @@ func _step_06_opponent_intro() -> void:
 			and pink.position.distance_to(pink_target) > 5.0:
 		await get_tree().process_frame
 	if not _is_alive(): return
- 
-	if not await _safe_await_timer(1.0): return
- 
+
+	# Show kick prompt immediately as pink arrives — no pause.
 	ui.show_instruction("KICK TO THEM AND LET'S LEARN HOW TO DEFEND", GLYPH_A)
  
 	crosshair.required_target_unit = pink
@@ -774,7 +786,8 @@ func _step_06_opponent_intro() -> void:
 	await ui.hide_instruction()
 	if not _is_alive(): return
  
-	pitch_ball.attach_to_unit(pink, pink.position + Vector2(50, 0))
+	# Pink is now defending — aiming LEFT toward player. Ball goes on LEFT.
+	pitch_ball.attach_to_unit(pink, pink.position + Vector2(-50, 0))
 	camera_target = pink.position
 	camera_follow_speed = CAMERA_FOLLOW_SPEED
  
@@ -847,7 +860,7 @@ func _step_07_defending() -> void:
 	_tutorial_movement_unit = null
 	_tutorial_movement_actions = {}
  
-	await ui.show_moment("NICE DEFENCE!", TEAM_A_COLOR.lightened(0.4), 1.0)
+	await ui.show_moment("NICE DEFENCE!", TEAM_A_COLOR.lightened(0.4), 1.0, player_unit.position)
 	if not _is_alive(): return
  
 	pitch_ball.attach_to_unit(player_unit, player_unit.position + Vector2(20, 0))
@@ -921,8 +934,9 @@ func _step_08_multi_unit_hint() -> void:
 
 	# Set up the crosshair to allow a kick within tolerance of any of the
 	# three units. We do NOT set required_target_unit; instead we wrap the
-	# kick check ourselves.
-	crosshair.activate_and_position(aimer, TUTORIAL_INPUT_ID)
+	# kick check ourselves. NOTE: we don't reset the crosshair position
+	# (player may have moved it during the walk-in).
+	crosshair.activate(aimer, TUTORIAL_INPUT_ID)  # don't reposition!
 	crosshair.required_target_unit = null
 	crosshair.kick_locked = true  # we manage kick gating ourselves
 
@@ -1023,15 +1037,14 @@ func _step_08_multi_unit_hint() -> void:
 # ---------------------------------------------------------------------------
 func _step_09_first_contest() -> void:
 	if _step9_player_unit == null or _step9_ai_unit == null:
-		print("[step9] missing converged units; aborting step 9")
 		return
 	if not is_instance_valid(_step9_player_unit) or not is_instance_valid(_step9_ai_unit):
-		print("[step9] converged units freed; aborting step 9")
 		return
 
 	# Show contest intro text. Don't move the camera — units are at crosshair.
 	ui.show_instruction(
-		"WHEN EACH TEAM HAS A UNIT AT THE TARGET, A CONTEST OCCURS", "")
+		"WHEN EACH TEAM HAS A UNIT AT THE TARGET, A CONTEST OCCURS\n(THEY ALSO OCCUR IF NO-ONE IS AT THE TARGET)",
+		"", 28)
 	if not await _safe_await_timer(2.5): return
 	await ui.hide_instruction()
 	if not _is_alive(): return
@@ -1041,6 +1054,14 @@ func _step_09_first_contest() -> void:
 	# Add to a CanvasLayer so it renders above the world. Use UIRoot.
 	var ui_root: CanvasLayer = $UIRoot
 	ui_root.add_child(contest)
+	# Move pause menu to the back of UIRoot's children so it renders ON TOP
+	# of the contest popup. (Last child renders on top.)
+	if pause_menu != null and pause_menu.get_parent() == ui_root:
+		ui_root.move_child(pause_menu, ui_root.get_child_count() - 1)
+	# Clear main current/log slots — contest has its own labels.
+	ui.force_hide_now()
+	ui.clear_log()
+
 	# Connect signal. Use an Array as a mutable wrapper so the lambda's
 	# write actually reaches outer scope.
 	var winner_holder: Array = [""]
@@ -1079,13 +1100,11 @@ func _step_09_first_contest() -> void:
 # position. This step is purely instructional — no playable content.
 # ---------------------------------------------------------------------------
 func _step_10_no_one_contest_text() -> void:
-	print("[step10] start")
 	ui.show_instruction("CONTESTS ALSO OCCUR IF NO-ONE IS AT THE TARGET", "")
 	if not await _safe_await_timer(3.0): return
 	await ui.hide_instruction()
 	if not _is_alive(): return
 	await _safe_await_timer(0.4)
-	print("[step10] done")
 
 # ---------------------------------------------------------------------------
 # STEP 11 — Goalie introduction. "EACH TEAM HAS A GOALIE AT ONE END OF
@@ -1096,8 +1115,6 @@ func _step_10_no_one_contest_text() -> void:
 # leftward pan). This step just labels them.
 # ---------------------------------------------------------------------------
 func _step_11_goalie_intro() -> void:
-	print("[step11] start")
-
 	# Pan the camera to frame both P1 and the goalie if needed (in case the
 	# player has been moving the crosshair around).
 	var p1: Node2D = _find_p1_unit()
@@ -1114,7 +1131,6 @@ func _step_11_goalie_intro() -> void:
 	await ui.hide_instruction()
 	if not _is_alive(): return
 	await _safe_await_timer(0.3)
-	print("[step11] done")
 
 # ---------------------------------------------------------------------------
 # STEP 12 — Goalie kick. "KICK TO YOUR GOALIE TO SCORE A GOAL"
@@ -1122,11 +1138,8 @@ func _step_11_goalie_intro() -> void:
 # Player kicks at the goalie. Ball arcs. "GOAL!" big text on landing.
 # ---------------------------------------------------------------------------
 func _step_12_goalie_kick() -> void:
-	print("[step12] start")
-
 	var p1: Node2D = _find_p1_unit()
 	if p1 == null or _tutorial_goalie == null or not is_instance_valid(_tutorial_goalie):
-		print("[step12] missing P1 or goalie, returning")
 		return
 
 	# Re-bind crosshair to P1 (in case it was deactivated).
@@ -1162,11 +1175,10 @@ func _step_12_goalie_kick() -> void:
 	await ui.hide_instruction()
 	if not _is_alive(): return
 
-	await ui.show_moment("GOAL!", TEAM_A_COLOR.lightened(0.4), 1.5)
+	await ui.show_moment("GOAL!", TEAM_A_COLOR.lightened(0.4), 1.5, _tutorial_goalie.position)
 	if not _is_alive(): return
 
 	await _safe_await_timer(0.4)
-	print("[step12] done")
 
 # ---------------------------------------------------------------------------
 # STEP 13 — Formation reveal
@@ -1181,11 +1193,8 @@ func _step_12_goalie_kick() -> void:
 # - Show "TEAMS FORM UP LIKE THIS TO START GAMES & AFTER GOALS" text
 # ---------------------------------------------------------------------------
 func _step_13_formation_reveal() -> void:
-	print("[step13] start")
-
 	# Hide instructional UI immediately during the cut.
 	# (No await here — instant transition.)
-
 	# Free all existing units in both teams.
 	for child in units_a.get_children():
 		child.queue_free()
@@ -1251,10 +1260,13 @@ func _step_13_formation_reveal() -> void:
 	# Hide crosshair during reveal — it'll come back in step 14.
 	crosshair.deactivate()
 
+	# Pitch markings are now visible — add a backing behind text labels for readability.
+	ui.enable_text_backing()
+
 	# Hold a beat, then show the text.
 	if not await _safe_await_timer(0.6): return
 
-	ui.show_instruction("TEAMS FORM UP LIKE THIS TO START GAMES & AFTER GOALS", "")
+	ui.show_instruction("TEAMS FORM UP LIKE THIS TO START GAMES & AFTER GOALS", "", 36)
 	if not await _safe_await_timer(3.5): return
 	await ui.hide_instruction()
 	if not _is_alive(): return
@@ -1264,7 +1276,6 @@ func _step_13_formation_reveal() -> void:
 	_step14_ai_unit = formation_b["centre"]
 
 	await _safe_await_timer(0.3)
-	print("[step13] done")
 
 # ---------------------------------------------------------------------------
 # STEP 14 — Restart contest
@@ -1278,59 +1289,52 @@ func _step_13_formation_reveal() -> void:
 #   - Both units walk back to formation; player retains ball
 # ---------------------------------------------------------------------------
 func _step_14_restart_contest() -> void:
-	print("[step14] start")
-
 	if _step14_player_unit == null or _step14_ai_unit == null:
-		print("[step14] missing centre units, returning")
 		return
 	if not is_instance_valid(_step14_player_unit) \
 			or not is_instance_valid(_step14_ai_unit):
-		print("[step14] centre units freed, returning")
 		return
 
 	ui.show_instruction("AND PLAY RESTARTS WITH A...", "")
 	if not await _safe_await_timer(2.0): return
 
-	# Both centre units converge to centre circle.
-	var converge_player: Tween = create_tween()
-	converge_player.tween_property(_step14_player_unit, "position",
-		PITCH_CENTRE + Vector2(-20.0, 0.0), 0.6)
-	var converge_ai: Tween = create_tween()
-	converge_ai.tween_property(_step14_ai_unit, "position",
-		PITCH_CENTRE + Vector2(20.0, 0.0), 0.6)
-
-	# Camera zooms in slightly to the centre.
+	# Camera zooms in to centre — units stay where they are.
 	var zoom_tween: Tween = create_tween()
 	zoom_tween.tween_property(camera, "zoom", Vector2(1.2, 1.2), 0.6)
 	var pan_tween: Tween = create_tween()
 	pan_tween.tween_property(camera, "position", PITCH_CENTRE, 0.6)
-
-	await converge_ai.finished
+	await zoom_tween.finished
 	if not _is_alive(): return
 
-	# Show "CONTEST!" text briefly.
-	ui.show_instruction("CONTEST!", "")
-	if not await _safe_await_timer(1.5): return
-	await ui.hide_instruction()
-	if not _is_alive(): return
-
-	# Open the contest popup.
+	# Open the contest popup. Pass suppress_text=true so no in-popup text shows.
 	var contest: Node2D = TUTORIAL_CONTEST_SCENE.instantiate()
 	var ui_root: CanvasLayer = $UIRoot
 	ui_root.add_child(contest)
 
+	# Move pause menu to back so it renders on top of contest.
+	if pause_menu != null and pause_menu.get_parent() == ui_root:
+		ui_root.move_child(pause_menu, ui_root.get_child_count() - 1)
+
+	# Show CONTEST! sized to fit inside contest viewport, more transparent persistent state.
+	ui.show_persistent_centre_text("CONTEST!", Color(1, 1, 1, 1), 0.4, 0.15, 60)
+
+	ui.force_hide_now()
+	ui.clear_log()
+
 	var winner_holder: Array = [""]
 	contest.contest_finished.connect(func(w: String):
 		winner_holder[0] = w)
-	contest.start_scripted_contest(TUTORIAL_INPUT_ID, "A", 1.0)
+	contest.start_scripted_contest(TUTORIAL_INPUT_ID, "A", 1.0, true)  # suppress_text = true
 
 	while _is_alive() and winner_holder[0] == "":
 		await get_tree().process_frame
 	if not _is_alive(): return
 	contest.queue_free()
 	if not _is_alive(): return
+	ui.clear_persistent_centre_text()
 
-	# After contest: player retains ball at centre.
+	# After contest: player retains ball at centre. Other units do their
+	# normal AI walk-back to formation positions; centre units stay still.
 	if is_instance_valid(_step14_player_unit):
 		pitch_ball.attach_to_unit(_step14_player_unit,
 			_step14_player_unit.position + Vector2(-30, 0))
@@ -1338,25 +1342,8 @@ func _step_14_restart_contest() -> void:
 		camera_follow_active = true
 		camera_follow_speed = CAMERA_FOLLOW_SPEED
 
-	# Walk both units back to their formation positions.
-	if is_instance_valid(_step14_ai_unit):
-		var ai_walk_back: Tween = create_tween()
-		ai_walk_back.tween_property(_step14_ai_unit, "position",
-			FORMATION_POSITIONS_B["centre"], 0.5)
-
-	if is_instance_valid(_step14_player_unit):
-		var player_walk_back: Tween = create_tween()
-		player_walk_back.tween_property(_step14_player_unit, "position",
-			FORMATION_POSITIONS_A["centre"], 0.5)
-		await player_walk_back.finished
-		if not _is_alive(): return
-		# Re-attach ball at final centre position.
-		pitch_ball.attach_to_unit(_step14_player_unit,
-			_step14_player_unit.position + Vector2(-30, 0))
-
-	await _safe_await_timer(0.4)
-	print("[step14] done")
-
+	# Brief pause to let the contest "YOU WIN" disappear cleanly.
+	await _safe_await_timer(0.5)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -1488,3 +1475,459 @@ func _spawn_goal_square_at_position(centre_pos: Vector2, color: Color,
 	var pitch_lines_idx: int = pitch_lines.get_index()
 	move_child(rect, pitch_lines_idx + 1)
 	return rect
+
+# ---------------------------------------------------------------------------
+# STEP 15 — Tactical demo + cinematic outro
+#
+# Setup: from formation positions (after step 14's contest), Team A centre =
+# P1 with ball. Step 15 enables full match-play AI on all non-P1 non-goalie
+# units, lets the player observe their tactical behaviour, takes a single
+# kick, then plays the cinematic outro.
+#
+# AI behaviour mirrored from pitch.gd:
+#   - Marker defender: closest pink to P1, stands 35px to the LEFT of P1
+#     (defending_direction * 35 for Team A attacking).
+#   - Other pink defenders: assigned to specific purple attackers as targets.
+#   - Purple attackers: runner (closest to crosshair), dragger, prepper roles.
+#   - Role rotation: prepper becomes runner if closer to crosshair than runner.
+#   - Mark delay on kick: marker defender pauses 1s before pursuing the ball.
+#
+# After kick resolves, cinematic outro: zoom in on player, fade to white,
+# return to title.
+# ---------------------------------------------------------------------------
+
+# Step 15 AI state — mirrors pitch.gd's match-play state machine.
+var _step15_aiming_unit: Node2D = null
+var _step15_marker_defender: Node2D = null
+var _step15_runner: Node2D = null
+var _step15_dragger: Node2D = null
+var _step15_prepper: Node2D = null
+var _step15_ai_active: bool = false
+var _step15_attack_update_timer: float = 0.0
+var _step15_rotation_cooldown: float = 0.0
+var _step15_timeout_rotation_cooldown: float = 0.0
+var _step15_kick_in_progress: bool = false
+
+# Public-facing kick state for unit.gd's runner-reach callback.
+var kick_in_progress: bool = false
+
+const STEP15_ATTACK_UPDATE_INTERVAL: float = 0.5
+const STEP15_ROTATION_COOLDOWN_TIME: float = 2.0
+const STEP15_TIMEOUT_ROTATION_COOLDOWN_TIME: float = 3.0
+const STEP15_MARK_DELAY: float = 1.0
+const STEP15_TEXT_DEFENDER_DELAY: float = 0.5
+const STEP15_TEXT_TACTICS_DELAY: float = 2.5
+const STEP15_TEXT_KICK_DELAY: float = 4.0
+
+# Outro tuning
+const STEP15_OUTRO_ZOOM_DURATION: float = 1.5
+const STEP15_OUTRO_FADE_DURATION: float = 1.0
+
+func _step_15_tactical_demo() -> void:
+	# Find the centre units (already set up by step 14).
+	var p1: Node2D = _step14_player_unit
+	if p1 == null or not is_instance_valid(p1):
+		return
+
+	# Set P1 as the aiming unit for AI orchestration.
+	_step15_aiming_unit = p1
+
+	# Bind crosshair to P1.
+	crosshair.activate_and_position(p1, TUTORIAL_INPUT_ID)
+	crosshair.required_target_unit = null
+	crosshair.kick_locked = false
+
+	# Mark P1 as aiming (for visual pulse).
+	p1.set_as_aiming(true)
+
+	# Camera follows P1 with EXACT position lock (no lerp). This stays on
+	# throughout step 15 so the outro zoom centres precisely on the ball.
+	camera_target = p1.position
+	camera_follow_active = true
+	camera_snap_mode = true
+
+	# Activate full match-play AI on all non-P1 non-goalie units.
+	_step15_assign_defenders()
+	_step15_assign_attack_roles()
+	_step15_ai_active = true
+
+	# Show first text after a short delay.
+	if not await _safe_await_timer(STEP15_TEXT_DEFENDER_DELAY): return
+	ui.show_instruction("ONE DEFENDER MUST STAND STILL IN FRONT OF THE KICKER", "")
+
+	# Show second text shortly after.
+	if not await _safe_await_timer(STEP15_TEXT_TACTICS_DELAY): return
+	ui.show_instruction("UNITS WILL CHANGE TACTICS AS YOU MOVE YOUR CROSSHAIR", "")
+
+	# Wait for kick OR timeout to show kick prompt.
+	var kick_prompt_shown: bool = false
+	var elapsed: float = 0.0
+	# Connect to kick_launched signal once.
+	var kick_holder: Array = [null]  # mutable wrapper for lambda capture
+	var kick_signal_connection: Callable = func(tp: Vector2, z: int, dur: float):
+		kick_holder[0] = [tp, z, dur]
+	crosshair.kick_launched.connect(kick_signal_connection)
+
+	while _is_alive() and kick_holder[0] == null:
+		if elapsed >= STEP15_TEXT_KICK_DELAY and not kick_prompt_shown:
+			ui.show_instruction("PRESS A TO KICK", GLYPH_A)
+			kick_prompt_shown = true
+		elapsed += get_process_delta_time()
+		await get_tree().process_frame
+
+	if not _is_alive(): return
+	if crosshair.kick_launched.is_connected(kick_signal_connection):
+		crosshair.kick_launched.disconnect(kick_signal_connection)
+
+	var kick_data: Array = kick_holder[0]
+	var target_pos: Vector2 = kick_data[0]
+	var zone: int = kick_data[1]
+	var duration: float = kick_data[2]
+
+	# Kick launches: AI roles reassign (everyone runs to ball, marker has delay).
+	_step15_kick_in_progress = true
+	kick_in_progress = true
+	_step15_on_kick_launched(target_pos)
+
+	pitch_ball.launch(p1.position, target_pos, duration, zone)
+	camera_target = pitch_ball.position
+	camera_follow_active = true
+	camera_follow_speed = CAMERA_BALL_FOLLOW_SPEED
+
+	# Track ball + countdown.
+	while _is_alive() and (pitch_ball._flying or crosshair.countdown_active):
+		if pitch_ball._flying:
+			camera_target = pitch_ball.position
+		await get_tree().process_frame
+	if not _is_alive(): return
+
+	# Kick resolved — bring the ball back visible (pitch_ball.land() hid it).
+	pitch_ball.visible = true
+
+	# Camera is already locked to ball position via snap mode. Just pause.
+	_step15_kick_in_progress = false
+	kick_in_progress = false
+	if not await _safe_await_timer(1.0): return
+
+	# Transition to outro.
+	await _step_15_outro()
+
+func _step_15_outro() -> void:
+	# Stop AI updates immediately — units freeze at current positions.
+	_step15_ai_active = false
+
+	# Force all units to stop moving by clearing their roles and defending state.
+	for u in units_a.get_children() + units_b.get_children():
+		if not is_instance_valid(u):
+			continue
+		u.attack_role = u.AttackRole.NONE
+		u.is_defending = false
+		u.assigned_target = null
+		u.clear_human_attack()
+		u.is_aiming = false  # stops aiming pulse on P1
+
+	# Stop the ball arc and ensure it stays visible at its current position.
+	# (pitch_ball.land() hides the ball — we don't want that for the outro.)
+	pitch_ball._flying = false
+	pitch_ball.visible = true
+
+	# Stop the crosshair countdown if active.
+	if crosshair.has_method("deactivate"):
+		crosshair.deactivate()
+
+	# Hide all text.
+	ui.force_hide_now()
+	ui.clear_log()
+
+	# Determine focus point: where the ball ended up.
+	var focus_pos: Vector2 = pitch_ball.position
+
+	# Detach pitch_ball if attached, then freeze it (visually it stays put).
+	# Already done effectively because _kick_in_progress was set false.
+
+	# Disable camera follow so the zoom tween can drive position freely.
+	# (Snap mode also turns off here; we want a smooth zoom, not snap.)
+	camera_follow_active = false
+	camera_snap_mode = false
+
+	# Camera is already at ball position from snap mode. Tween the zoom in
+	# while holding position locked to focus_pos.
+	var zoom_tween: Tween = create_tween()
+	zoom_tween.tween_property(camera, "zoom", INTRO_ZOOM_START,
+		STEP15_OUTRO_ZOOM_DURATION).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	# Hold camera at focus_pos throughout the zoom (defensive against drift).
+	var pan_tween: Tween = create_tween()
+	pan_tween.tween_property(camera, "position", focus_pos,
+		STEP15_OUTRO_ZOOM_DURATION).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	await zoom_tween.finished
+	if not _is_alive(): return
+
+	# Fade to white.
+	white_overlay.visible = true
+	white_overlay.modulate.a = 0.0
+	var fade: Tween = create_tween()
+	fade.tween_property(white_overlay, "modulate:a", 1.0, STEP15_OUTRO_FADE_DURATION)
+	await fade.finished
+	if not _is_alive(): return
+
+	# Brief hold then exit.
+	if not await _safe_await_timer(0.4): return
+
+	_exit_to_title()
+
+# ---------------------------------------------------------------------------
+# Step 15 AI orchestration — replicated from pitch.gd
+# ---------------------------------------------------------------------------
+
+func _step15_get_attacking_units() -> Array:
+	# Team A is the attacker in the tutorial.
+	return units_a.get_children()
+
+func _step15_get_defending_units() -> Array:
+	return units_b.get_children()
+
+func _step15_get_goalie(team_units: Array) -> Node2D:
+	for u in team_units:
+		if u.role == "goalie":
+			return u
+	return null
+
+# Mirrors pitch.gd's _assign_defenders for tutorial.
+func _step15_assign_defenders() -> void:
+	var defending_units: Array = _step15_get_defending_units()
+	var attacking_units: Array = _step15_get_attacking_units()
+
+	for unit in defending_units + attacking_units:
+		if unit == _step15_aiming_unit:
+			continue
+		unit.is_defending = false
+		unit.human_defending = false
+		unit.assigned_target = null
+		unit.clear_human_attack()
+		unit.attack_role = unit.AttackRole.NONE
+
+	# Marker defender = closest non-goalie pink unit.
+	var defending_no_goalie: Array = defending_units.filter(
+		func(u): return u.role != "goalie"
+	)
+	var marker: Node2D = null
+	var marker_dist: float = INF
+	for unit in defending_no_goalie:
+		var d: float = unit.position.distance_to(_step15_aiming_unit.position)
+		if d < marker_dist:
+			marker_dist = d
+			marker = unit
+
+	if marker != null:
+		# defending_direction: -1 for Team A attacking, +1 for Team B attacking.
+		# Tutorial is always Team A attacking.
+		var defending_direction: float = -1.0
+		marker.position = _step15_aiming_unit.position + Vector2(defending_direction * 35.0, 0.0)
+		marker.set_as_defender(_step15_aiming_unit, false, "", "", "", "", 40.0)
+	_step15_marker_defender = marker
+
+	# Other defenders: assigned to specific purple attackers.
+	var remaining_defenders: Array = defending_units.filter(
+		func(u): return u != marker and u.role != "goalie"
+	)
+	var targetable_attackers: Array = attacking_units.filter(
+		func(u): return u.role != "goalie" and u != _step15_aiming_unit
+	)
+	for defender in remaining_defenders:
+		if targetable_attackers.is_empty():
+			break
+		var nearest: Node2D = null
+		var nd: float = INF
+		for attacker in targetable_attackers:
+			var dist: float = defender.position.distance_to(attacker.position)
+			if dist < nd:
+				nd = dist
+				nearest = attacker
+		if nearest != null:
+			targetable_attackers.erase(nearest)
+			defender.set_as_defender(nearest, false)
+
+# Mirrors pitch.gd's _assign_attack_roles for tutorial.
+func _step15_assign_attack_roles() -> void:
+	var attacking_units: Array = _step15_get_attacking_units()
+	var eligible: Array = attacking_units.filter(
+		func(u): return u != _step15_aiming_unit and u.role != "goalie"
+	)
+	_step15_runner = null
+	_step15_dragger = null
+	_step15_prepper = null
+
+	if eligible.size() == 0: return
+	if eligible.size() == 1:
+		_step15_runner = eligible[0]
+		_step15_update_attack_targets()
+		return
+	if eligible.size() == 2:
+		var ch_pos2: Vector2 = crosshair.position
+		eligible.sort_custom(func(a, b):
+			return a.position.distance_to(ch_pos2) < b.position.distance_to(ch_pos2))
+		_step15_runner = eligible[0]
+		_step15_dragger = eligible[1]
+		_step15_update_attack_targets()
+		return
+
+	var goalie: Node2D = _step15_get_goalie(attacking_units)
+	var ch_pos: Vector2 = crosshair.position
+	eligible.sort_custom(func(a, b):
+		return a.position.distance_to(ch_pos) < b.position.distance_to(ch_pos))
+	_step15_runner = eligible[0]
+	var remaining: Array = [eligible[1], eligible[2]]
+	if goalie != null:
+		remaining.sort_custom(func(a, b):
+			return a.position.distance_to(goalie.position) < b.position.distance_to(goalie.position))
+	_step15_dragger = remaining[0]
+	_step15_prepper = remaining[1]
+	_step15_update_attack_targets()
+
+# Mirrors pitch.gd's _update_attack_targets.
+func _step15_update_attack_targets() -> void:
+	if _step15_runner == null: return
+	var ch_pos: Vector2 = crosshair.position
+	var attacking_units: Array = _step15_get_attacking_units()
+	var goalie: Node2D = _step15_get_goalie(attacking_units)
+
+	if _step15_runner.attack_role != _step15_runner.AttackRole.RUNNER:
+		_step15_runner.set_attack_role(_step15_runner.AttackRole.RUNNER, _step15_clamp_to_pitch(ch_pos))
+	else:
+		_step15_runner.update_runner_target(_step15_clamp_to_pitch(ch_pos))
+
+	if _step15_dragger == null: return
+
+	var in_defensive_half: bool = _step15_aiming_unit.position.x > 1200.0  # Team A defensive half
+	var dragger_target: Vector2
+	if goalie != null:
+		if in_defensive_half:
+			var p_pos: Vector2 = _step15_prepper.position if _step15_prepper != null else _step15_dragger.position
+			dragger_target = (p_pos + goalie.position) / 2.0
+		else:
+			dragger_target = (goalie.position + Vector2(250.0, 0.0)) / 2.0
+	else:
+		dragger_target = _step15_dragger.position
+	_step15_dragger.set_attack_role(_step15_dragger.AttackRole.DRAGGER, _step15_clamp_to_pitch(dragger_target))
+
+	if _step15_prepper == null: return
+
+	var prepper_target: Vector2
+	if goalie != null:
+		if in_defensive_half:
+			var is_prepper_defensive: bool = _step15_prepper.position.x > _step15_aiming_unit.position.x
+			if is_prepper_defensive:
+				prepper_target = goalie.position
+			else:
+				var defending_units: Array = _step15_get_defending_units()
+				var nearest_def: Node2D = null
+				var nearest_def_dist: float = INF
+				for u in defending_units:
+					var d: float = _step15_prepper.position.distance_to(u.position)
+					if d < nearest_def_dist:
+						nearest_def_dist = d
+						nearest_def = u
+				if nearest_def != null:
+					var away_dir: Vector2 = (_step15_prepper.position - nearest_def.position).normalized()
+					var target: Vector2 = _step15_prepper.position + away_dir * 200.0
+					var offset: Vector2 = target - _step15_aiming_unit.position
+					if offset.length() > crosshair.RADIUS_OUTER:
+						offset = offset.normalized() * crosshair.RADIUS_OUTER
+						target = _step15_aiming_unit.position + offset
+					target.x = min(target.x, _step15_aiming_unit.position.x)
+					prepper_target = target
+				else:
+					prepper_target = _step15_prepper.position
+		else:
+			prepper_target = Vector2(250.0, 750.0)
+	else:
+		prepper_target = _step15_prepper.position
+	_step15_prepper.set_attack_role(_step15_prepper.AttackRole.PREPPER, _step15_clamp_to_pitch(prepper_target))
+
+# Mirrors pitch.gd's _check_role_rotation.
+func _step15_check_role_rotation(delta: float) -> void:
+	if _step15_runner == null or _step15_prepper == null:
+		return
+	if _step15_rotation_cooldown > 0.0:
+		_step15_rotation_cooldown -= delta
+	if _step15_timeout_rotation_cooldown > 0.0:
+		_step15_timeout_rotation_cooldown -= delta
+
+	var ch_pos: Vector2 = crosshair.position
+	var runner_dist: float = _step15_runner.position.distance_to(ch_pos)
+	var prepper_dist: float = _step15_prepper.position.distance_to(ch_pos)
+
+	if prepper_dist < runner_dist and _step15_rotation_cooldown <= 0.0 \
+			and _step15_timeout_rotation_cooldown <= 0.0:
+		_step15_on_runner_rotation_needed(false)
+		return
+
+	_step15_attack_update_timer += delta
+	if _step15_attack_update_timer >= STEP15_ATTACK_UPDATE_INTERVAL:
+		_step15_attack_update_timer = 0.0
+		_step15_update_attack_targets()
+
+func _step15_on_runner_rotation_needed(from_timeout: bool = false) -> void:
+	if from_timeout and _step15_timeout_rotation_cooldown > 0.0:
+		return
+	if from_timeout:
+		_step15_timeout_rotation_cooldown = STEP15_TIMEOUT_ROTATION_COOLDOWN_TIME
+	_step15_rotation_cooldown = STEP15_ROTATION_COOLDOWN_TIME
+	var old_runner: Node2D = _step15_runner
+	var old_dragger: Node2D = _step15_dragger
+	var old_prepper: Node2D = _step15_prepper
+	_step15_runner = old_prepper
+	_step15_dragger = old_runner
+	_step15_prepper = old_dragger
+	if _step15_dragger != null:
+		var away_dir: Vector2 = (_step15_dragger.position - crosshair.position).normalized()
+		if away_dir == Vector2.ZERO:
+			away_dir = Vector2(1.0, 0.0)
+		_step15_dragger.position += away_dir * 30.0
+	_step15_update_attack_targets()
+
+# Mirrors pitch.gd's on_kick_launched defender/attacker reassignment.
+func _step15_on_kick_launched(kick_pos: Vector2) -> void:
+	var defending_units: Array = _step15_get_defending_units()
+	for unit in defending_units:
+		if unit.role == "goalie": continue
+		if unit == _step15_marker_defender:
+			unit.start_mark_delay(STEP15_MARK_DELAY)
+			unit.assigned_target = null
+			unit.set_attack_role(unit.AttackRole.RUNNER, kick_pos)
+			unit.mark_delay_timer = STEP15_MARK_DELAY
+			continue
+		unit.set_attack_role(unit.AttackRole.RUNNER, kick_pos)
+
+	# Reassign purple attackers — closest to kick_pos becomes runner, rest spread away.
+	var attacking_units: Array = _step15_get_attacking_units()
+	var eligible: Array = attacking_units.filter(
+		func(u): return u != _step15_aiming_unit and u.role != "goalie"
+	)
+	_step15_runner = null
+	if eligible.size() > 0:
+		eligible.sort_custom(func(a, b):
+			return a.position.distance_to(kick_pos) < b.position.distance_to(kick_pos))
+		_step15_runner = eligible[0]
+		_step15_runner.set_attack_role(_step15_runner.AttackRole.RUNNER, kick_pos)
+		for i in range(1, eligible.size()):
+			var unit: Node2D = eligible[i]
+			var away_dir: Vector2 = (unit.position - kick_pos).normalized()
+			if away_dir == Vector2.ZERO:
+				away_dir = Vector2(1, 0)
+			var away_pos: Vector2 = unit.position + away_dir * 300.0
+			away_pos.x = clamp(away_pos.x, 50.0, PITCH_W - 50.0)
+			away_pos.y = clamp(away_pos.y, 50.0, PITCH_H - 50.0)
+			unit.set_attack_role(unit.AttackRole.DRAGGER, away_pos)
+
+func _step15_clamp_to_pitch(pos: Vector2) -> Vector2:
+	return Vector2(
+		clamp(pos.x, 10.0, PITCH_W - 10.0),
+		clamp(pos.y, 10.0, PITCH_H - 10.0)
+	)
+
+# Called by unit.gd's runner logic when a runner has reached its target or
+# timed out. Delegates to step 15's role rotation if step 15 is active.
+func on_runner_rotation_needed(from_timeout: bool = false) -> void:
+	if _step15_ai_active and not _step15_kick_in_progress:
+		_step15_on_runner_rotation_needed(from_timeout)
