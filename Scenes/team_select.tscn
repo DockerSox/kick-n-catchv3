@@ -43,11 +43,11 @@ offset_bottom = 720.0
 
 [node name="JoinLabel" type="Label" parent="CentreColumn" unique_id=641798171]
 layout_mode = 0
-offset_left = 67.0
-offset_top = 110.0
-offset_right = 362.0
-offset_bottom = 177.0
-theme_override_font_sizes/font_size = 23
+offset_left = 62.0
+offset_top = 108.0
+offset_right = 370.0
+offset_bottom = 179.0
+theme_override_font_sizes/font_size = 24
 text = "PRESS A OR SPACE TO JOIN
 Esc / start to exit"
 horizontal_alignment = 1

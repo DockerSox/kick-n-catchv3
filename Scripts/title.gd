@@ -14,8 +14,7 @@ func _on_tutorial() -> void:
 	GameState.go_to_scene("res://Scenes/Tutorial/tutorial.tscn")
  
 func _on_options() -> void:
-	# Options popup — we'll build this later
-	pass
+	GameState.go_to_scene("res://Scenes/options.tscn")
  
 func _on_exit() -> void:
 	get_tree().quit()
