@@ -295,6 +295,18 @@ func _setup_round() -> void:
 func _setup_player_paddle(paddle: Area2D, input_id: String) -> void:
 	paddle.is_ai = false
 	paddle.ball_ref = null
+	if input_id == "hybrid":
+		# Both gamepad 0 AND keyboard 0 control this paddle.
+		paddle.move_left_action = "joy_aim_left_0"
+		paddle.move_right_action = "joy_aim_right_0"
+		paddle.launch_action = "joy_kick_0"
+		paddle.set_hybrid_actions(
+			["kb0_left", "kb0_aim_left"],
+			["kb0_right", "kb0_aim_right"],
+			["kb0_confirm", "kb0_kick"]
+		)
+		return
+	paddle.clear_hybrid_actions()
 	match input_id:
 		"kb0":
 			paddle.move_left_action = "kb0_left"

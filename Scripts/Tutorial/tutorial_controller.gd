@@ -31,7 +31,7 @@ const CAMERA_BOUND_RIGHT: float = 3900.0
 const CAMERA_BOUND_TOP: float = 0.0
 const CAMERA_BOUND_BOTTOM: float = 900.0
  
-const TUTORIAL_INPUT_ID: String = "joy0"
+const TUTORIAL_INPUT_ID: String = "hybrid"
  
 const GLYPH_START: String = "[Start]"
 const GLYPH_LSTICK: String = "[L-Stick]"
@@ -176,16 +176,16 @@ func _process(delta: float) -> void:
 			and is_instance_valid(_tutorial_movement_unit):
 		var move: Vector2 = Vector2.ZERO
 		if _tutorial_movement_actions.has("up") \
-				and Input.is_action_pressed(_tutorial_movement_actions["up"]):
+				and _any_action_in_list_pressed(_tutorial_movement_actions["up"]):
 			move.y -= 1
 		if _tutorial_movement_actions.has("down") \
-				and Input.is_action_pressed(_tutorial_movement_actions["down"]):
+				and _any_action_in_list_pressed(_tutorial_movement_actions["down"]):
 			move.y += 1
 		if _tutorial_movement_actions.has("left") \
-				and Input.is_action_pressed(_tutorial_movement_actions["left"]):
+				and _any_action_in_list_pressed(_tutorial_movement_actions["left"]):
 			move.x -= 1
 		if _tutorial_movement_actions.has("right") \
-				and Input.is_action_pressed(_tutorial_movement_actions["right"]):
+				and _any_action_in_list_pressed(_tutorial_movement_actions["right"]):
 			move.x += 1
 		if move.length() > 0:
 			move = move.normalized()
@@ -941,11 +941,11 @@ func _step_08_multi_unit_hint() -> void:
 	crosshair.kick_locked = true  # we manage kick gating ourselves
 
 	# Custom kick gate: poll until the player presses the kick action AND
-	# the crosshair is near one of the three units.
-	var kick_input_action: String = "joy_kick_0"  # matches TUTORIAL_INPUT_ID = "joy0"
+	# the crosshair is near one of the three units. Hybrid: joy0 OR kb0.
+	var kick_input_actions: Array = ["joy_kick_0", "kb0_kick"]
 	var validation_units: Array = [purple_top, purple_bottom, pink_step8]
 	while _is_alive():
-		if Input.is_action_just_pressed(kick_input_action):
+		if _any_action_in_list_just_pressed(kick_input_actions):
 			var nearest_to_crosshair: Node2D = _nearest_unit_to_position(
 				validation_units, crosshair.position)
 			if nearest_to_crosshair != null \
@@ -1379,18 +1379,27 @@ func _walk_unit_to(unit: Node2D, target: Vector2, speed: float = SCRIPTED_WALK_S
 	if _is_alive() and is_instance_valid(unit):
 		unit.position = target
  
+# Returns ARRAYS of action names (for hybrid input). Each direction may have
+# multiple actions bound. _process iterates these via _any_action_pressed.
 func _get_move_actions_for_input(input_id: String) -> Dictionary:
+	if input_id == "hybrid":
+		return {
+			"up": ["joy_aim_up_0", "kb0_aim_up"],
+			"down": ["joy_aim_down_0", "kb0_aim_down"],
+			"left": ["joy_aim_left_0", "kb0_aim_left"],
+			"right": ["joy_aim_right_0", "kb0_aim_right"],
+		}
 	match input_id:
 		"kb0":
-			return {"up": "kb0_aim_up", "down": "kb0_aim_down",
-					"left": "kb0_aim_left", "right": "kb0_aim_right"}
+			return {"up": ["kb0_aim_up"], "down": ["kb0_aim_down"],
+					"left": ["kb0_aim_left"], "right": ["kb0_aim_right"]}
 		"kb1":
-			return {"up": "kb1_aim_up", "down": "kb1_aim_down",
-					"left": "kb1_aim_left", "right": "kb1_aim_right"}
+			return {"up": ["kb1_aim_up"], "down": ["kb1_aim_down"],
+					"left": ["kb1_aim_left"], "right": ["kb1_aim_right"]}
 		_:
 			var n: String = input_id.substr(3)
-			return {"up": "joy_aim_up_" + n, "down": "joy_aim_down_" + n,
-					"left": "joy_aim_left_" + n, "right": "joy_aim_right_" + n}
+			return {"up": ["joy_aim_up_" + n], "down": ["joy_aim_down_" + n],
+					"left": ["joy_aim_left_" + n], "right": ["joy_aim_right_" + n]}
  
 func _find_p1_unit() -> Node2D:
 	for container in [units_a, units_b]:
@@ -1931,3 +1940,17 @@ func _step15_clamp_to_pitch(pos: Vector2) -> Vector2:
 func on_runner_rotation_needed(from_timeout: bool = false) -> void:
 	if _step15_ai_active and not _step15_kick_in_progress:
 		_step15_on_runner_rotation_needed(from_timeout)
+
+# Returns true if ANY action in the list is pressed (for hybrid input).
+func _any_action_in_list_pressed(actions: Array) -> bool:
+	for a in actions:
+		if a != "" and Input.is_action_pressed(a):
+			return true
+	return false
+
+# Returns true if ANY action in the list was just pressed this frame.
+func _any_action_in_list_just_pressed(actions: Array) -> bool:
+	for a in actions:
+		if a != "" and Input.is_action_just_pressed(a):
+			return true
+	return false

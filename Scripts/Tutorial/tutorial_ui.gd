@@ -280,7 +280,7 @@ func enable_text_backing() -> void:
 
 func _exit_tree() -> void:
 	if _persistent_centre_text != null and is_instance_valid(_persistent_centre_text):
-		var layer: Node = _persistent_centre_text.get_parent()
-		if layer != null and is_instance_valid(layer):
-			layer.queue_free()
+		var parent_layer: Node = _persistent_centre_text.get_parent()
+		if parent_layer != null and is_instance_valid(parent_layer):
+			parent_layer.queue_free()
 		_persistent_centre_text = null

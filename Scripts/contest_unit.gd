@@ -58,16 +58,15 @@ func _physics_process(delta: float) -> void:
 
 func _handle_aiming(delta: float) -> void:
 	if is_ai:
-		# Launch the moment the ball starts falling (velocity.y > 0)
 		if ball_ref != null and ball_ref.active and ball_ref.velocity.y > 0:
 			_launch()
 	else:
-		if move_left_action != "" and Input.is_action_pressed(move_left_action):
+		if _action_left_pressed():
 			aim_angle_deg += AIM_SPEED * delta
-		if move_right_action != "" and Input.is_action_pressed(move_right_action):
+		if _action_right_pressed():
 			aim_angle_deg -= AIM_SPEED * delta
 		aim_angle_deg = clamp(aim_angle_deg, AIM_MIN, AIM_MAX)
-		if launch_action != "" and Input.is_action_just_pressed(launch_action):
+		if _action_launch_just_pressed():
 			_launch()
 	_update_arrow()
 
@@ -133,3 +132,45 @@ func set_player_label(text: String) -> void:
 		add_child(lbl)
 	lbl.text = text
 	lbl.visible = text != ""
+
+# ---------------------------------------------------------------------------
+# Tutorial extensions
+# ---------------------------------------------------------------------------
+# Hybrid input — additional actions checked alongside the @export ones.
+var _hybrid_left_actions: Array = []
+var _hybrid_right_actions: Array = []
+var _hybrid_launch_actions: Array = []
+
+func set_hybrid_actions(left: Array, right: Array, launch: Array) -> void:
+	_hybrid_left_actions = left
+	_hybrid_right_actions = right
+	_hybrid_launch_actions = launch
+
+func clear_hybrid_actions() -> void:
+	_hybrid_left_actions = []
+	_hybrid_right_actions = []
+	_hybrid_launch_actions = []
+
+func _action_left_pressed() -> bool:
+	if move_left_action != "" and Input.is_action_pressed(move_left_action):
+		return true
+	for a in _hybrid_left_actions:
+		if a != "" and Input.is_action_pressed(a):
+			return true
+	return false
+
+func _action_right_pressed() -> bool:
+	if move_right_action != "" and Input.is_action_pressed(move_right_action):
+		return true
+	for a in _hybrid_right_actions:
+		if a != "" and Input.is_action_pressed(a):
+			return true
+	return false
+
+func _action_launch_just_pressed() -> bool:
+	if launch_action != "" and Input.is_action_just_pressed(launch_action):
+		return true
+	for a in _hybrid_launch_actions:
+		if a != "" and Input.is_action_just_pressed(a):
+			return true
+	return false

@@ -47,11 +47,13 @@ var required_target_unit: Node2D = null
 var zone_flash_enabled: bool = false
 var _last_zone_for_flash: int = -1
  
-var aim_action_left: String = ""
-var aim_action_right: String = ""
-var aim_action_up: String = ""
-var aim_action_down: String = ""
-var kick_action: String = ""
+# Each input direction can have MULTIPLE bound actions (for hybrid input mode
+# where keyboard AND gamepad work simultaneously). Empty array = no input.
+var aim_actions_left: Array = []
+var aim_actions_right: Array = []
+var aim_actions_up: Array = []
+var aim_actions_down: Array = []
+var kick_actions: Array = []
  
 @onready var countdown_label: Label = $CountdownLabel
 @onready var circle: Line2D = $Circle
@@ -128,33 +130,41 @@ func deactivate() -> void:
 	countdown_active = false
  
 func _bind_input(input_id: String) -> void:
+	# "hybrid" = both joy0 AND kb0 work simultaneously (tutorial default).
+	if input_id == "hybrid":
+		aim_actions_left = ["joy_aim_left_0", "kb0_aim_left"]
+		aim_actions_right = ["joy_aim_right_0", "kb0_aim_right"]
+		aim_actions_up = ["joy_aim_up_0", "kb0_aim_up"]
+		aim_actions_down = ["joy_aim_down_0", "kb0_aim_down"]
+		kick_actions = ["joy_kick_0", "kb0_kick"]
+		return
 	match input_id:
 		"kb0":
-			aim_action_left = "kb0_aim_left"
-			aim_action_right = "kb0_aim_right"
-			aim_action_up = "kb0_aim_up"
-			aim_action_down = "kb0_aim_down"
-			kick_action = "kb0_kick"
+			aim_actions_left = ["kb0_aim_left"]
+			aim_actions_right = ["kb0_aim_right"]
+			aim_actions_up = ["kb0_aim_up"]
+			aim_actions_down = ["kb0_aim_down"]
+			kick_actions = ["kb0_kick"]
 		"kb1":
-			aim_action_left = "kb1_aim_left"
-			aim_action_right = "kb1_aim_right"
-			aim_action_up = "kb1_aim_up"
-			aim_action_down = "kb1_aim_down"
-			kick_action = "kb1_kick"
+			aim_actions_left = ["kb1_aim_left"]
+			aim_actions_right = ["kb1_aim_right"]
+			aim_actions_up = ["kb1_aim_up"]
+			aim_actions_down = ["kb1_aim_down"]
+			kick_actions = ["kb1_kick"]
 		_:
 			var n: String = input_id.substr(3)
-			aim_action_left = "joy_aim_left_" + n
-			aim_action_right = "joy_aim_right_" + n
-			aim_action_up = "joy_aim_up_" + n
-			aim_action_down = "joy_aim_down_" + n
-			kick_action = "joy_kick_" + n
+			aim_actions_left = ["joy_aim_left_" + n]
+			aim_actions_right = ["joy_aim_right_" + n]
+			aim_actions_up = ["joy_aim_up_" + n]
+			aim_actions_down = ["joy_aim_down_" + n]
+			kick_actions = ["joy_kick_" + n]
  
 func _clear_input_bindings() -> void:
-	aim_action_left = ""
-	aim_action_right = ""
-	aim_action_up = ""
-	aim_action_down = ""
-	kick_action = ""
+	aim_actions_left = []
+	aim_actions_right = []
+	aim_actions_up = []
+	aim_actions_down = []
+	kick_actions = []
  
 # ---------------------------------------------------------------------------
 # Process
@@ -169,18 +179,18 @@ func _physics_process(delta: float) -> void:
 		_handle_movement(delta)
 		_update_zone()
 		_update_countdown_label()
-	if not kick_locked and kick_action != "" and Input.is_action_just_pressed(kick_action):
+	if not kick_locked and _any_action_just_pressed(kick_actions):
 		_attempt_kick()
  
 func _handle_movement(delta: float) -> void:
 	var move: Vector2 = Vector2.ZERO
-	if aim_action_left != "" and Input.is_action_pressed(aim_action_left):
+	if _any_action_pressed(aim_actions_left):
 		move.x -= 1
-	if aim_action_right != "" and Input.is_action_pressed(aim_action_right):
+	if _any_action_pressed(aim_actions_right):
 		move.x += 1
-	if aim_action_up != "" and Input.is_action_pressed(aim_action_up):
+	if _any_action_pressed(aim_actions_up):
 		move.y -= 1
-	if aim_action_down != "" and Input.is_action_pressed(aim_action_down):
+	if _any_action_pressed(aim_actions_down):
 		move.y += 1
 	if move.length() <= 0:
 		return
@@ -287,4 +297,21 @@ func _draw_circle(line: Line2D, radius: float) -> void:
 func _draw_crosshair_lines() -> void:
 	line_h.points = [Vector2(-CROSSHAIR_RADIUS, 0), Vector2(CROSSHAIR_RADIUS, 0)]
 	line_v.points = [Vector2(0, -CROSSHAIR_RADIUS), Vector2(0, CROSSHAIR_RADIUS)]
- 
+
+# ---------------------------------------------------------------------------
+# Input helpers
+# ---------------------------------------------------------------------------
+
+# Returns true if ANY action in the list is currently pressed.
+func _any_action_pressed(actions: Array) -> bool:
+	for action in actions:
+		if action != "" and Input.is_action_pressed(action):
+			return true
+	return false
+
+# Returns true if ANY action in the list was just pressed this frame.
+func _any_action_just_pressed(actions: Array) -> bool:
+	for action in actions:
+		if action != "" and Input.is_action_just_pressed(action):
+			return true
+	return false
