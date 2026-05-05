@@ -27,14 +27,14 @@ texture = ExtResource("2_2k2j8")
 offset_top = 300.0
 offset_right = 200.0
 offset_bottom = 600.0
-color = Color(0.53333336, 0.53333336, 1, 0.26666668)
+color = Color(0.41568628, 0.050980393, 0.6784314, 0.26666668)
 
 [node name="GoalSquareB" type="ColorRect" parent="." unique_id=1538904152]
 offset_left = 2200.0
 offset_top = 300.0
 offset_right = 2400.0
 offset_bottom = 600.0
-color = Color(1, 0.53333336, 0.53333336, 0.26666668)
+color = Color(0.5921569, 0.05882353, 0.6039216, 0.26666668)
 
 [node name="UnitsA" type="Node2D" parent="." unique_id=317694147]
 
